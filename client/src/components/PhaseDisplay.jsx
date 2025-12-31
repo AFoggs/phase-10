@@ -5,7 +5,10 @@ function PhaseDisplay({
   phaseNumber,
   phaseInfo,
   completed = false,
-  laidDownPhase = null
+  laidDownPhase = null,
+  canHit = false,
+  selectedCard = null,
+  onHit = null
 }) {
   if (!phaseInfo) {
     return null;
@@ -32,17 +35,32 @@ function PhaseDisplay({
       {/* Requirements or laid down phase */}
       {laidDownPhase ? (
         <div className="space-y-4">
-          <h3 className="text-sm text-gray-400">Your completed phase:</h3>
+          <h3 className="text-sm text-gray-400">
+            Your completed phase:
+            {canHit && selectedCard && (
+              <span className="ml-2 text-accent-gold">(Click + to hit your card here)</span>
+            )}
+          </h3>
           <div className="flex flex-wrap gap-4">
             {laidDownPhase.map((group, groupIdx) => (
               <div key={groupIdx} className="phase-group">
                 <div className="text-xs text-gray-400 mb-2">
                   {phaseInfo.requirements[groupIdx]?.label || `Group ${groupIdx + 1}`}
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
                   {group.map(card => (
                     <MiniCard key={card.id} card={card} />
                   ))}
+                  {/* Hit button for own phase */}
+                  {canHit && selectedCard && onHit && (
+                    <button
+                      onClick={() => onHit(groupIdx)}
+                      className="w-6 h-8 border-2 border-dashed border-green-400 rounded flex items-center justify-center text-green-400 text-xs hover:bg-green-400/20 transition-colors ml-1"
+                      title="Hit your card here"
+                    >
+                      +
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

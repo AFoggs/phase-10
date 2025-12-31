@@ -28,6 +28,8 @@ function GameBoard({
   const [showPhaseSelector, setShowPhaseSelector] = useState(false);
   const [showSkipTargetSelector, setShowSkipTargetSelector] = useState(false);
   const [pendingSkipCard, setPendingSkipCard] = useState(null);
+  const [notification, setNotification] = useState(null);
+  const [lastDrawnCardId, setLastDrawnCardId] = useState(null);
 
   // Find current player data
   const currentPlayer = useMemo(() =>
@@ -63,7 +65,13 @@ function GameBoard({
   const handleDraw = useCallback(async (source) => {
     try {
       setError(null);
-      await onDrawCard(source);
+      const result = await onDrawCard(source);
+      // Track the drawn card for highlighting
+      if (result?.card?.id) {
+        setLastDrawnCardId(result.card.id);
+        // Clear the highlight after a few seconds
+        setTimeout(() => setLastDrawnCardId(null), 3000);
+      }
     } catch (err) {
       setError(err);
     }
@@ -159,6 +167,51 @@ function GameBoard({
       setShowPhaseSelector(true);
     }
   }, [game?.phase, game?.pendingPhaseSelections, playerId]);
+
+  // Watch for skip actions and show notification
+  React.useEffect(() => {
+    const lastAction = game?.lastAction;
+    if (!lastAction) return;
+
+    // Show notification when someone is skipped
+    if (lastAction.type === 'discard' && lastAction.skippedPlayerId) {
+      const skippedPlayer = game?.players?.find(p => p.id === lastAction.skippedPlayerId);
+      const skipperPlayer = game?.players?.find(p => p.id === lastAction.playerId);
+      if (skippedPlayer && skipperPlayer) {
+        const isMe = lastAction.skippedPlayerId === playerId;
+        setNotification({
+          type: 'skip',
+          message: isMe
+            ? `${skipperPlayer.name} skipped you! You lose your next turn.`
+            : `${skipperPlayer.name} skipped ${skippedPlayer.name}!`,
+          isWarning: isMe
+        });
+      }
+    }
+
+    // Show notification when a player is auto-skipped at turn start
+    if (lastAction.type === 'skipped') {
+      const skippedPlayer = game?.players?.find(p => p.id === lastAction.playerId);
+      if (skippedPlayer) {
+        const isMe = lastAction.playerId === playerId;
+        setNotification({
+          type: 'skip',
+          message: isMe
+            ? "Your turn was skipped!"
+            : `${skippedPlayer.name}'s turn was skipped!`,
+          isWarning: isMe
+        });
+      }
+    }
+  }, [game?.lastAction, game?.players, playerId]);
+
+  // Clear notification after timeout
+  React.useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Game end screen
   if (game?.phase === 'gameEnd') {
@@ -259,6 +312,18 @@ function GameBoard({
         </div>
       )}
 
+      {/* Skip notification */}
+      {notification && (
+        <div className={`
+          fixed top-16 left-1/2 -translate-x-1/2 px-8 py-4 rounded-lg shadow-2xl z-50
+          flex items-center gap-3 animate-bounce-in
+          ${notification.isWarning ? 'bg-red-600 text-white' : 'bg-amber-500 text-black'}
+        `}>
+          <span className="text-2xl">⏭️</span>
+          <span className="font-bold text-lg">{notification.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex justify-between items-center p-4 border-b border-white/10">
         <div className="flex items-center gap-4">
@@ -321,6 +386,9 @@ function GameBoard({
             phaseInfo={myPhaseInfo}
             completed={hasCompletedPhase}
             laidDownPhase={currentPlayer?.laidDownPhase}
+            canHit={canPlay && hasCompletedPhase}
+            selectedCard={selectedCards[0]}
+            onHit={(groupIndex) => handleHit(playerId, selectedCards[0]?.id, groupIndex)}
           />
 
           {/* Draw/Discard piles */}
@@ -404,6 +472,7 @@ function GameBoard({
           disabled={!canPlay}
           canSelect={canPlay}
           maxSelect={1}
+          highlightCardId={lastDrawnCardId}
         />
       </div>
 

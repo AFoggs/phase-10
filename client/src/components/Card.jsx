@@ -10,6 +10,7 @@ function Card({
   card,
   index = 0,
   selected = false,
+  highlighted = false,
   onClick,
   draggable = true,
   small = false,
@@ -64,7 +65,7 @@ function Card({
         ${textClass}
         rounded-lg
         border-2
-        ${selected ? 'border-accent-gold ring-2 ring-accent-gold' : 'border-white/30'}
+        ${selected ? 'border-accent-gold ring-2 ring-accent-gold' : highlighted ? 'border-green-400 ring-2 ring-green-400 shadow-[0_0_15px_rgba(74,222,128,0.6)]' : 'border-white/30'}
         flex flex-col items-center justify-center
         shadow-lg
         transition-all duration-200

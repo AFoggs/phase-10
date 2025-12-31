@@ -10,7 +10,8 @@ function PlayerHand({
   disabled = false,
   canSelect = true,
   maxSelect = Infinity,
-  showSort = true
+  showSort = true,
+  highlightCardId = null
 }) {
   // 'color' = by color then number, 'number' = by number then color
   const [sortMode, setSortMode] = useState('color');
@@ -78,24 +79,36 @@ function PlayerHand({
         className="flex flex-wrap justify-center gap-1 sm:gap-2 p-2"
         style={{ maxWidth: '100%' }}
       >
-        {displayCards.map((card, index) => (
-          <div
-            key={card.id}
-            className="transform transition-transform duration-200"
-            style={{
-              animationDelay: `${index * 50}ms`
-            }}
-          >
-            <Card
-              card={card}
-              index={index}
-              selected={isSelected(card)}
-              onClick={() => handleCardClick(card)}
-              disabled={disabled}
-              draggable={!disabled && canSelect}
-            />
-          </div>
-        ))}
+        {displayCards.map((card, index) => {
+          const isHighlighted = card.id === highlightCardId;
+          return (
+            <div
+              key={card.id}
+              className={`
+                relative transform transition-transform duration-200
+                ${isHighlighted ? 'animate-pulse-glow' : ''}
+              `}
+              style={{
+                animationDelay: `${index * 50}ms`
+              }}
+            >
+              {isHighlighted && (
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs bg-green-500 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap z-20 shadow-lg">
+                  NEW
+                </div>
+              )}
+              <Card
+                card={card}
+                index={index}
+                selected={isSelected(card)}
+                highlighted={isHighlighted}
+                onClick={() => handleCardClick(card)}
+                disabled={disabled}
+                draggable={!disabled && canSelect}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Selection info */}
