@@ -233,6 +233,106 @@ export function isValidColorGroup(cards) {
   return uniqueColors.length === 1;
 }
 
+// Check if a card can be hit on a phase group (client-side validation)
+export function canHitOnPhase(card, existingGroup, groupType) {
+  if (!card || !existingGroup || !groupType) {
+    return { canHit: false, reason: 'Invalid parameters' };
+  }
+
+  if (card.type === 'skip') {
+    return { canHit: false, reason: 'Skip cards cannot be used to hit' };
+  }
+
+  if (card.type === 'wild') {
+    return { canHit: true }; // Wilds can always hit on any group
+  }
+
+  switch (groupType.type) {
+    case 'set':
+    case 'colorSet': {
+      // Can add to set if same number
+      const numberCards = existingGroup.filter(c => c.type === 'number');
+      if (numberCards.length === 0) {
+        return { canHit: true }; // All wilds, any number works
+      }
+      const setValue = numberCards[0].value;
+      if (card.value !== setValue) {
+        return { canHit: false, reason: 'Card must match the set number' };
+      }
+      if (groupType.type === 'colorSet') {
+        const color = numberCards[0].color;
+        if (card.color !== color) {
+          return { canHit: false, reason: 'Card must match the set color' };
+        }
+      }
+      return { canHit: true };
+    }
+
+    case 'run':
+    case 'colorRun':
+    case 'oddRun':
+    case 'evenRun':
+    case 'oddColorRun':
+    case 'evenColorRun': {
+      // Can extend run at either end
+      const numberCards = existingGroup.filter(c => c.type === 'number');
+      const values = numberCards.map(c => c.value).sort((a, b) => a - b);
+      const minVal = Math.min(...values);
+      const maxVal = Math.max(...values);
+
+      // Check if card extends the run
+      if (card.value !== minVal - 1 && card.value !== maxVal + 1) {
+        if (values.includes(card.value)) {
+          return { canHit: false, reason: 'Card already in run' };
+        }
+        if (card.value < minVal - 1 || card.value > maxVal + 1) {
+          return { canHit: false, reason: 'Card must extend the run' };
+        }
+      }
+
+      // Check bounds
+      if (card.value < 1 || card.value > 12) {
+        return { canHit: false, reason: 'Card value out of range' };
+      }
+
+      // Check odd/even constraints
+      if (groupType.type.includes('odd') && card.value % 2 === 0) {
+        return { canHit: false, reason: 'Must be an odd number' };
+      }
+      if (groupType.type.includes('even') && card.value % 2 !== 0) {
+        return { canHit: false, reason: 'Must be an even number' };
+      }
+
+      // Check color constraints
+      if (groupType.type.includes('Color') || groupType.type.includes('color')) {
+        const colors = numberCards.map(c => c.color);
+        const groupColor = [...new Set(colors)][0];
+        if (groupColor && card.color !== groupColor) {
+          return { canHit: false, reason: 'Card must match the run color' };
+        }
+      }
+
+      return { canHit: true };
+    }
+
+    case 'color': {
+      // Can add if same color
+      const numberCards = existingGroup.filter(c => c.type === 'number');
+      if (numberCards.length === 0) {
+        return { canHit: true };
+      }
+      const groupColor = numberCards[0].color;
+      if (card.color !== groupColor) {
+        return { canHit: false, reason: 'Card must match the color group' };
+      }
+      return { canHit: true };
+    }
+
+    default:
+      return { canHit: false, reason: 'Unknown group type' };
+  }
+}
+
 export default {
   CARD_COLORS,
   sortHand,
@@ -251,5 +351,6 @@ export default {
   canExtendRun,
   canExtendSet,
   getColorName,
-  isValidColorGroup
+  isValidColorGroup,
+  canHitOnPhase
 };

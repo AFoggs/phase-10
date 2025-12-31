@@ -7,6 +7,7 @@ import DrawDiscardPiles from './DrawDiscardPiles';
 import ScoreBoard from './ScoreBoard';
 import { getPhaseInfo, GAME_MODES, getPhasesForMode } from '../utils/phaseDefinitions';
 import { useGameSounds } from './AudioPlayer';
+import { canHitOnPhase } from '../utils/cardHelpers';
 
 function GameBoard({
   game,
@@ -31,6 +32,7 @@ function GameBoard({
   const [pendingSkipCard, setPendingSkipCard] = useState(null);
   const [notification, setNotification] = useState(null);
   const [lastDrawnCardId, setLastDrawnCardId] = useState(null);
+  const [sortMode, setSortMode] = useState('color');
 
   // Sound effects
   const { playSound } = useGameSounds();
@@ -204,18 +206,15 @@ function GameBoard({
     // Show notification when someone is skipped
     if (lastAction.type === 'discard' && lastAction.skippedPlayerId) {
       const skippedPlayer = game?.players?.find(p => p.id === lastAction.skippedPlayerId);
-      const skipperPlayer = game?.players?.find(p => p.id === lastAction.playerId);
-      if (skippedPlayer && skipperPlayer) {
+      if (skippedPlayer) {
         const isMe = lastAction.skippedPlayerId === playerId;
         if (isMe) {
           playSound('skipped');
         }
         setNotification({
           type: 'skip',
-          message: isMe
-            ? `${skipperPlayer.name} skipped you! You lose your next turn.`
-            : `${skipperPlayer.name} skipped ${skippedPlayer.name}!`,
-          isWarning: isMe
+          skippedPlayerName: skippedPlayer.name,
+          isMe: isMe
         });
       }
     }
@@ -230,10 +229,8 @@ function GameBoard({
         }
         setNotification({
           type: 'skip',
-          message: isMe
-            ? "Your turn was skipped!"
-            : `${skippedPlayer.name}'s turn was skipped!`,
-          isWarning: isMe
+          skippedPlayerName: skippedPlayer.name,
+          isMe: isMe
         });
       }
     }
@@ -346,15 +343,22 @@ function GameBoard({
         </div>
       )}
 
-      {/* Skip notification */}
-      {notification && (
+      {/* Skip notification - prominent banner for all players */}
+      {notification && notification.type === 'skip' && (
         <div className={`
-          fixed top-16 left-1/2 -translate-x-1/2 px-8 py-4 rounded-lg shadow-2xl z-50
-          flex items-center gap-3 animate-bounce-in
-          ${notification.isWarning ? 'bg-red-600 text-white' : 'bg-amber-500 text-black'}
+          fixed top-16 left-1/2 -translate-x-1/2 px-10 py-5 rounded-xl shadow-2xl z-50
+          flex flex-col items-center gap-2 animate-bounce-in border-2
+          ${notification.isMe
+            ? 'bg-red-600 text-white border-red-400'
+            : 'bg-gradient-to-r from-amber-500 to-orange-500 text-black border-amber-300'}
         `}>
-          <span className="text-2xl">⏭️</span>
-          <span className="font-bold text-lg">{notification.message}</span>
+          <span className="text-4xl">⏭️</span>
+          <span className="font-black text-2xl tracking-wide">
+            {notification.skippedPlayerName} has been SKIPPED!
+          </span>
+          {notification.isMe && (
+            <span className="text-sm opacity-90">You lose your next turn</span>
+          )}
         </div>
       )}
 
@@ -507,6 +511,7 @@ function GameBoard({
           canSelect={canPlay}
           maxSelect={1}
           highlightCardId={lastDrawnCardId}
+          onSortModeChange={setSortMode}
         />
       </div>
 
@@ -516,6 +521,7 @@ function GameBoard({
           phaseNumber={currentPlayer?.currentPhase}
           phaseInfo={myPhaseInfo}
           hand={currentPlayer?.hand || []}
+          sortMode={sortMode}
           onSubmit={handleLayPhase}
           onCancel={() => setShowPhaseBuilder(false)}
         />
@@ -592,6 +598,15 @@ function OtherPlayerPanel({
 }) {
   const phaseInfo = getPhaseInfo(player.currentPhase);
 
+  // Check if selected card can hit on each group
+  const canHitGroup = useCallback((group, groupIdx) => {
+    if (!selectedCard || !phaseInfo) return false;
+    const groupType = phaseInfo.requirements[groupIdx];
+    if (!groupType) return false;
+    const result = canHitOnPhase(selectedCard, group, groupType);
+    return result.canHit;
+  }, [selectedCard, phaseInfo]);
+
   return (
     <div
       className={`
@@ -634,23 +649,26 @@ function OtherPlayerPanel({
       {player.laidDownPhase && (
         <div className="mt-3 space-y-2">
           <div className="text-xs text-gray-400">Completed Phase:</div>
-          {player.laidDownPhase.map((group, groupIdx) => (
-            <div key={groupIdx} className="flex flex-wrap gap-1">
-              {group.map(card => (
-                <MiniCard key={card.id} card={card} />
-              ))}
-              {/* Hit button */}
-              {myPhaseCompleted && selectedCard && (
-                <button
-                  onClick={() => onHit(player.id, selectedCard.id, groupIdx)}
-                  className="w-6 h-8 border border-dashed border-accent-gold rounded flex items-center justify-center text-accent-gold text-xs hover:bg-accent-gold/10"
-                  title="Hit here"
-                >
-                  +
-                </button>
-              )}
-            </div>
-          ))}
+          {player.laidDownPhase.map((group, groupIdx) => {
+            const canHit = myPhaseCompleted && selectedCard && canHitGroup(group, groupIdx);
+            return (
+              <div key={groupIdx} className="flex flex-wrap gap-1">
+                {group.map(card => (
+                  <MiniCard key={card.id} card={card} />
+                ))}
+                {/* Hit button - only show if card can actually hit this group */}
+                {canHit && (
+                  <button
+                    onClick={() => onHit(player.id, selectedCard.id, groupIdx)}
+                    className="w-6 h-8 border border-dashed border-accent-gold rounded flex items-center justify-center text-accent-gold text-xs hover:bg-accent-gold/10"
+                    title="Hit here"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

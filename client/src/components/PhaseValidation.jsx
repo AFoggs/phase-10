@@ -8,6 +8,7 @@ function PhaseValidation({
   phaseNumber,
   phaseInfo,
   hand,
+  sortMode = 'color',
   onSubmit,
   onCancel
 }) {
@@ -22,9 +23,10 @@ function PhaseValidation({
     [groups]
   );
 
+  // Use the same sort mode as player's hand
   const remainingHand = useMemo(() =>
-    sortHand(hand.filter(c => !usedCardIds.has(c.id))),
-    [hand, usedCardIds]
+    sortHand(hand.filter(c => !usedCardIds.has(c.id)), sortMode),
+    [hand, usedCardIds, sortMode]
   );
 
   // Validate each group

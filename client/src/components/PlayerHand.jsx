@@ -11,7 +11,8 @@ function PlayerHand({
   canSelect = true,
   maxSelect = Infinity,
   showSort = true,
-  highlightCardId = null
+  highlightCardId = null,
+  onSortModeChange = null
 }) {
   // 'color' = by color then number, 'number' = by number then color
   const [sortMode, setSortMode] = useState('color');
@@ -31,7 +32,11 @@ function PlayerHand({
 
   const cycleSortMode = () => {
     // Toggle between color and number only
-    setSortMode(sortMode === 'color' ? 'number' : 'color');
+    const newMode = sortMode === 'color' ? 'number' : 'color';
+    setSortMode(newMode);
+    if (onSortModeChange) {
+      onSortModeChange(newMode);
+    }
   };
 
   const getSortLabel = () => {
