@@ -36,13 +36,42 @@ class Game {
     return { success: true };
   }
 
+  // Random name generator for CPUs
+  static CPU_FIRST_NAMES = [
+    'Alex', 'Sam', 'Jordan', 'Casey', 'Riley', 'Morgan', 'Taylor', 'Quinn',
+    'Avery', 'Blake', 'Cameron', 'Dakota', 'Drew', 'Emery', 'Finley', 'Gray',
+    'Harper', 'Hayden', 'Jamie', 'Jessie', 'Kendall', 'Lane', 'Logan', 'Max',
+    'Nico', 'Parker', 'Peyton', 'Reese', 'Robin', 'Sage', 'Skyler', 'Sydney'
+  ];
+
+  static CPU_ADJECTIVES = [
+    'Swift', 'Clever', 'Lucky', 'Sharp', 'Bold', 'Sly', 'Quick', 'Keen',
+    'Wily', 'Canny', 'Smart', 'Slick', 'Ace', 'Pro', 'Cool', 'Hot'
+  ];
+
+  generateCPUName() {
+    const usedNames = this.players.filter(p => p.isComputer).map(p => p.name);
+    let attempts = 0;
+    let name;
+
+    do {
+      const firstName = Game.CPU_FIRST_NAMES[Math.floor(Math.random() * Game.CPU_FIRST_NAMES.length)];
+      const adjective = Game.CPU_ADJECTIVES[Math.floor(Math.random() * Game.CPU_ADJECTIVES.length)];
+      name = `${adjective} ${firstName}`;
+      attempts++;
+    } while (usedNames.includes(name) && attempts < 50);
+
+    return name;
+  }
+
   // Add a CPU player
   addCPU(name) {
     if (this.players.length >= 6) {
       return { success: false, error: 'Game is full' };
     }
 
-    const cpu = new CPUPlayer(null, name || `CPU ${this.players.length + 1}`, this.cpuDifficulty);
+    const cpuName = name || this.generateCPUName();
+    const cpu = new CPUPlayer(null, cpuName, this.cpuDifficulty);
     this.players.push(cpu);
     return { success: true, cpu };
   }
@@ -101,6 +130,26 @@ class Game {
     // For Chaos mode, assign random phases
     if (this.mode.startsWith('chaos')) {
       this.assignChaosPhases();
+    }
+
+    // For Choice mode, wait for phase selections
+    if (this.mode.startsWith('choice')) {
+      this.phase = 'phaseSelection';
+      for (const player of this.players) {
+        if (!player.isComputer) {
+          this.pendingPhaseSelections.set(player.id, true);
+        } else {
+          // CPU auto-selects phase
+          const availablePhases = getPhasesForMode(this.mode);
+          const selectedPhase = player.selectPhase(availablePhases);
+          player.setPhase(selectedPhase);
+        }
+      }
+
+      // If no human players need to select, continue
+      if (this.pendingPhaseSelections.size === 0) {
+        this.phase = 'playing';
+      }
     }
 
     this.lastAction = { type: 'gameStarted', roundNumber: this.roundNumber };

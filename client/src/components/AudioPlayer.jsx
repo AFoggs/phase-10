@@ -257,21 +257,306 @@ function AudioPlayer() {
   );
 }
 
-// Sound effects for game actions (optional enhancement)
+// Procedural sound effects generator using Web Audio API
+class SoundEffectsGenerator {
+  constructor() {
+    this.audioContext = null;
+    this.masterGain = null;
+    this.enabled = true;
+    this.volume = 0.5;
+  }
+
+  ensureContext() {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.audioContext.createGain();
+      this.masterGain.gain.setValueAtTime(this.volume, this.audioContext.currentTime);
+      this.masterGain.connect(this.audioContext.destination);
+    }
+    // Resume context if suspended (browsers require user interaction)
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+    return this.audioContext;
+  }
+
+  setVolume(volume) {
+    this.volume = volume;
+    if (this.masterGain && this.audioContext) {
+      this.masterGain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+    }
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled;
+  }
+
+  // Card draw sound - swoosh/slide effect
+  playDrawCard() {
+    if (!this.enabled) return;
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+
+    // White noise for swoosh
+    const bufferSize = ctx.sampleRate * 0.15;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(2000, now);
+    filter.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+    filter.Q.setValueAtTime(1, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.3 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    noise.start(now);
+    noise.stop(now + 0.15);
+  }
+
+  // Card discard sound - soft thud
+  playDiscardCard() {
+    if (!this.enabled) return;
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+
+    // Low frequency thud
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.1);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.4 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.12);
+
+    // Add a bit of noise for texture
+    const bufferSize = ctx.sampleRate * 0.08;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize) * 0.3;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(500, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.2 * this.volume, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+
+    noise.start(now);
+    noise.stop(now + 0.08);
+  }
+
+  // Phase complete sound - triumphant ascending chime
+  playPhaseComplete() {
+    if (!this.enabled) return;
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + i * 0.1);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now + i * 0.1);
+      gain.gain.linearRampToValueAtTime(0.25 * this.volume, now + i * 0.1 + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(now + i * 0.1);
+      osc.stop(now + i * 0.1 + 0.5);
+    });
+  }
+
+  // Your turn notification - gentle two-note chime
+  playYourTurn() {
+    if (!this.enabled) return;
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+
+    const notes = [659.25, 880]; // E5, A5
+
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + i * 0.15);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now + i * 0.15);
+      gain.gain.linearRampToValueAtTime(0.3 * this.volume, now + i * 0.15 + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(now + i * 0.15);
+      osc.stop(now + i * 0.15 + 0.35);
+    });
+  }
+
+  // Skip notification - descending warning tone
+  playSkipped() {
+    if (!this.enabled) return;
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.15 * this.volume, now);
+    gain.gain.linearRampToValueAtTime(0.15 * this.volume, now + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1000, now);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
+
+  // Game win sound - fanfare
+  playGameWin() {
+    if (!this.enabled) return;
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+
+    const notes = [
+      { freq: 523.25, time: 0, dur: 0.2 },     // C5
+      { freq: 659.25, time: 0.15, dur: 0.2 },  // E5
+      { freq: 783.99, time: 0.3, dur: 0.2 },   // G5
+      { freq: 1046.50, time: 0.45, dur: 0.5 }, // C6
+      { freq: 783.99, time: 0.6, dur: 0.15 },  // G5
+      { freq: 1046.50, time: 0.75, dur: 0.6 }, // C6
+    ];
+
+    notes.forEach(({ freq, time, dur }) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + time);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now + time);
+      gain.gain.linearRampToValueAtTime(0.3 * this.volume, now + time + 0.02);
+      gain.gain.setValueAtTime(0.25 * this.volume, now + time + dur * 0.7);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + time + dur);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(now + time);
+      osc.stop(now + time + dur + 0.1);
+    });
+  }
+}
+
+// Singleton instance for sound effects
+let soundEffectsInstance = null;
+
+export function getSoundEffects() {
+  if (!soundEffectsInstance) {
+    soundEffectsInstance = new SoundEffectsGenerator();
+  }
+  return soundEffectsInstance;
+}
+
+// Hook for game sounds
 export function useGameSounds() {
-  const sounds = useRef({});
+  const [enabled, setEnabled] = useState(() => {
+    const saved = localStorage.getItem('phase10_sound_effects');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [volume, setVolumeState] = useState(() => {
+    const saved = localStorage.getItem('phase10_sound_volume');
+    return saved !== null ? parseFloat(saved) : 0.5;
+  });
 
   useEffect(() => {
-    return () => {
-      Object.values(sounds.current).forEach(sound => sound?.unload());
-    };
+    const sfx = getSoundEffects();
+    sfx.setEnabled(enabled);
+    sfx.setVolume(volume);
+  }, [enabled, volume]);
+
+  const toggleEnabled = useCallback(() => {
+    setEnabled(prev => {
+      const newValue = !prev;
+      localStorage.setItem('phase10_sound_effects', String(newValue));
+      return newValue;
+    });
+  }, []);
+
+  const setVolume = useCallback((vol) => {
+    setVolumeState(vol);
+    localStorage.setItem('phase10_sound_volume', String(vol));
   }, []);
 
   const playSound = useCallback((soundName) => {
-    sounds.current[soundName]?.play();
+    const sfx = getSoundEffects();
+    switch (soundName) {
+      case 'draw':
+        sfx.playDrawCard();
+        break;
+      case 'discard':
+        sfx.playDiscardCard();
+        break;
+      case 'phaseComplete':
+        sfx.playPhaseComplete();
+        break;
+      case 'yourTurn':
+        sfx.playYourTurn();
+        break;
+      case 'skipped':
+        sfx.playSkipped();
+        break;
+      case 'gameWin':
+        sfx.playGameWin();
+        break;
+      default:
+        break;
+    }
   }, []);
 
-  return { playSound };
+  return { playSound, enabled, toggleEnabled, volume, setVolume };
 }
 
 export default AudioPlayer;

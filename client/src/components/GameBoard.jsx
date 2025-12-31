@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import PlayerHand from './PlayerHand';
 import Card, { MiniCard } from './Card';
 import PhaseDisplay from './PhaseDisplay';
@@ -6,6 +6,7 @@ import PhaseValidation from './PhaseValidation';
 import DrawDiscardPiles from './DrawDiscardPiles';
 import ScoreBoard from './ScoreBoard';
 import { getPhaseInfo, GAME_MODES, getPhasesForMode } from '../utils/phaseDefinitions';
+import { useGameSounds } from './AudioPlayer';
 
 function GameBoard({
   game,
@@ -30,6 +31,10 @@ function GameBoard({
   const [pendingSkipCard, setPendingSkipCard] = useState(null);
   const [notification, setNotification] = useState(null);
   const [lastDrawnCardId, setLastDrawnCardId] = useState(null);
+
+  // Sound effects
+  const { playSound } = useGameSounds();
+  const prevTurnPlayerId = useRef(game?.currentPlayerId);
 
   // Find current player data
   const currentPlayer = useMemo(() =>
@@ -69,25 +74,27 @@ function GameBoard({
       // Track the drawn card for highlighting
       if (result?.card?.id) {
         setLastDrawnCardId(result.card.id);
+        playSound('draw');
         // Clear the highlight after a few seconds
         setTimeout(() => setLastDrawnCardId(null), 3000);
       }
     } catch (err) {
       setError(err);
     }
-  }, [onDrawCard]);
+  }, [onDrawCard, playSound]);
 
   // Handle laying down phase
   const handleLayPhase = useCallback(async (cardGroups) => {
     try {
       setError(null);
       await onLayDownPhase(cardGroups);
+      playSound('phaseComplete');
       setShowPhaseBuilder(false);
       setSelectedCards([]);
     } catch (err) {
       setError(err);
     }
-  }, [onLayDownPhase]);
+  }, [onLayDownPhase, playSound]);
 
   // Handle hitting
   const handleHit = useCallback(async (targetPlayerId, cardId, groupIndex) => {
@@ -114,13 +121,14 @@ function GameBoard({
     try {
       setError(null);
       await onDiscardCard(cardId, targetPlayerId);
+      playSound('discard');
       setSelectedCards([]);
       setPendingSkipCard(null);
       setShowSkipTargetSelector(false);
     } catch (err) {
       setError(err);
     }
-  }, [onDiscardCard, currentPlayer]);
+  }, [onDiscardCard, currentPlayer, playSound]);
 
   // Handle skip target selection
   const handleSkipTargetSelect = useCallback(async (targetId) => {
@@ -128,13 +136,14 @@ function GameBoard({
     try {
       setError(null);
       await onDiscardCard(pendingSkipCard.id, targetId);
+      playSound('discard');
       setSelectedCards([]);
       setPendingSkipCard(null);
       setShowSkipTargetSelector(false);
     } catch (err) {
       setError(err);
     }
-  }, [onDiscardCard, pendingSkipCard]);
+  }, [onDiscardCard, pendingSkipCard, playSound]);
 
   // Cancel skip target selection
   const handleCancelSkipTarget = useCallback(() => {
@@ -168,6 +177,25 @@ function GameBoard({
     }
   }, [game?.phase, game?.pendingPhaseSelections, playerId]);
 
+  // Play sound when it becomes your turn
+  React.useEffect(() => {
+    const currentTurnId = game?.currentPlayerId;
+    // Only play sound when turn changes to this player
+    if (currentTurnId === playerId && prevTurnPlayerId.current !== playerId && game?.phase === 'playing') {
+      playSound('yourTurn');
+    }
+    prevTurnPlayerId.current = currentTurnId;
+  }, [game?.currentPlayerId, playerId, playSound, game?.phase]);
+
+  // Play sound when game ends
+  React.useEffect(() => {
+    if (game?.phase === 'gameEnd') {
+      if (game?.winner === playerId) {
+        playSound('gameWin');
+      }
+    }
+  }, [game?.phase, game?.winner, playerId, playSound]);
+
   // Watch for skip actions and show notification
   React.useEffect(() => {
     const lastAction = game?.lastAction;
@@ -179,6 +207,9 @@ function GameBoard({
       const skipperPlayer = game?.players?.find(p => p.id === lastAction.playerId);
       if (skippedPlayer && skipperPlayer) {
         const isMe = lastAction.skippedPlayerId === playerId;
+        if (isMe) {
+          playSound('skipped');
+        }
         setNotification({
           type: 'skip',
           message: isMe
@@ -194,6 +225,9 @@ function GameBoard({
       const skippedPlayer = game?.players?.find(p => p.id === lastAction.playerId);
       if (skippedPlayer) {
         const isMe = lastAction.playerId === playerId;
+        if (isMe) {
+          playSound('skipped');
+        }
         setNotification({
           type: 'skip',
           message: isMe
@@ -203,7 +237,7 @@ function GameBoard({
         });
       }
     }
-  }, [game?.lastAction, game?.players, playerId]);
+  }, [game?.lastAction, game?.players, playerId, playSound]);
 
   // Clear notification after timeout
   React.useEffect(() => {
