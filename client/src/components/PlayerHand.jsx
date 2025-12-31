@@ -12,7 +12,7 @@ function PlayerHand({
   maxSelect = Infinity,
   showSort = true
 }) {
-  // 'color' = by color then number, 'number' = by number then color, 'none' = original order
+  // 'color' = by color then number, 'number' = by number then color
   const [sortMode, setSortMode] = useState('color');
 
   const getDisplayCards = () => {
@@ -22,28 +22,19 @@ function PlayerHand({
       case 'number':
         return sortByNumber(cards);
       default:
-        return cards;
+        return sortByColor(cards);
     }
   };
 
   const displayCards = getDisplayCards();
 
   const cycleSortMode = () => {
-    const modes = ['color', 'number', 'none'];
-    const currentIndex = modes.indexOf(sortMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    setSortMode(modes[nextIndex]);
+    // Toggle between color and number only
+    setSortMode(sortMode === 'color' ? 'number' : 'color');
   };
 
   const getSortLabel = () => {
-    switch (sortMode) {
-      case 'color':
-        return 'Sorted by Color';
-      case 'number':
-        return 'Sorted by Number';
-      default:
-        return 'Original Order';
-    }
+    return sortMode === 'color' ? 'Sorted by Color' : 'Sorted by Number';
   };
 
   const handleCardClick = useCallback((card) => {
