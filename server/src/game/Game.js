@@ -22,6 +22,9 @@ class Game {
 
     // For Chaos mode - assigned phases per round
     this.chaosPhases = new Map();
+
+    // Track skips per player per round (only one skip per player per round allowed)
+    this.skipsUsedThisRound = new Map(); // Map of targetPlayerId -> true
   }
 
   // Add a player to the game
@@ -70,8 +73,12 @@ class Game {
     this.deck = new Deck();
     this.phase = 'playing';
     this.roundNumber = 1;
-    this.currentPlayerIndex = 0;
+    // Randomly select first player
+    this.currentPlayerIndex = Math.floor(Math.random() * this.players.length);
     this.turnPhase = 'draw';
+
+    // Reset skip tracking for the round
+    this.skipsUsedThisRound = new Map();
 
     // Deal cards to all players
     for (const player of this.players) {
@@ -81,8 +88,15 @@ class Game {
       player.sortHand();
     }
 
-    // Initialize discard pile
-    this.deck.initializeDiscardPile();
+    // Initialize discard pile (may return a skip card that should skip first player)
+    const firstDiscardResult = this.deck.initializeDiscardPile();
+
+    // If first discard is a skip, skip the first player
+    if (firstDiscardResult && firstDiscardResult.isSkip) {
+      const firstPlayer = this.getCurrentPlayer();
+      firstPlayer.isSkipped = true;
+      this.skipsUsedThisRound.set(firstPlayer.id, true);
+    }
 
     // For Chaos mode, assign random phases
     if (this.mode.startsWith('chaos')) {
@@ -298,7 +312,8 @@ class Game {
   }
 
   // Discard a card and end turn
-  discardCard(playerId, cardId) {
+  // targetPlayerId is optional - only used for skip cards to specify who to skip
+  discardCard(playerId, cardId, targetPlayerId = null) {
     if (this.phase !== 'playing') {
       return { success: false, error: 'Game not in playing phase' };
     }
@@ -312,24 +327,49 @@ class Game {
       return { success: false, error: 'Must draw a card first' };
     }
 
-    const card = currentPlayer.removeCard(cardId);
+    const card = currentPlayer.getCard(cardId);
     if (!card) {
       return { success: false, error: 'Card not in your hand' };
     }
 
-    this.deck.discard(card);
-
-    // Check for Skip card
+    // Skip card validation
     if (card.type === 'skip') {
-      const nextPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
-      this.players[nextPlayerIndex].isSkipped = true;
+      // Must specify a target for skip cards
+      if (!targetPlayerId) {
+        return { success: false, error: 'Must select a player to skip' };
+      }
+
+      // Can't skip yourself
+      if (targetPlayerId === playerId) {
+        return { success: false, error: 'Cannot skip yourself' };
+      }
+
+      // Check if target player exists
+      const targetPlayer = this.players.find(p => p.id === targetPlayerId);
+      if (!targetPlayer) {
+        return { success: false, error: 'Target player not found' };
+      }
+
+      // Only one skip per player per round
+      if (this.skipsUsedThisRound.has(targetPlayerId)) {
+        return { success: false, error: 'This player has already been skipped this round' };
+      }
+
+      // Mark the target as skipped
+      targetPlayer.isSkipped = true;
+      this.skipsUsedThisRound.set(targetPlayerId, true);
     }
+
+    // Remove card from hand after validation passes
+    currentPlayer.removeCard(cardId);
+    this.deck.discard(card);
 
     this.lastAction = {
       type: 'discard',
       playerId,
       cardId,
-      cardType: card.type
+      cardType: card.type,
+      skippedPlayerId: card.type === 'skip' ? targetPlayerId : null
     };
 
     // Check if player won the round
@@ -442,6 +482,9 @@ class Game {
     this.roundNumber++;
     this.deck.reset();
 
+    // Reset skip tracking for the new round
+    this.skipsUsedThisRound = new Map();
+
     // Reset all players for new round
     for (const player of this.players) {
       player.resetForNewRound();
@@ -450,8 +493,8 @@ class Game {
       player.sortHand();
     }
 
-    // Initialize discard pile
-    this.deck.initializeDiscardPile();
+    // Initialize discard pile (may return a skip card that should skip first player)
+    const firstDiscardResult = this.deck.initializeDiscardPile();
 
     // For Chaos mode, assign new random phases
     if (this.mode.startsWith('chaos')) {
@@ -480,8 +523,16 @@ class Game {
       this.phase = 'playing';
     }
 
-    this.currentPlayerIndex = 0;
+    // Randomly select first player for new round
+    this.currentPlayerIndex = Math.floor(Math.random() * this.players.length);
     this.turnPhase = 'draw';
+
+    // If first discard is a skip, skip the first player
+    if (firstDiscardResult && firstDiscardResult.isSkip) {
+      const firstPlayer = this.getCurrentPlayer();
+      firstPlayer.isSkipped = true;
+      this.skipsUsedThisRound.set(firstPlayer.id, true);
+    }
 
     this.lastAction = {
       type: 'newRound',
@@ -539,12 +590,13 @@ class Game {
     }
 
     // 4. Discard
-    const discardCard = cpu.selectCardToDiscard();
-    if (discardCard) {
-      const discardResult = this.discardCard(cpuId, discardCard.id);
+    const discardSelection = cpu.selectCardToDiscard(this.players, this.skipsUsedThisRound);
+    if (discardSelection && discardSelection.card) {
+      const discardResult = this.discardCard(cpuId, discardSelection.card.id, discardSelection.skipTargetId);
       actions.push({
         type: 'discard',
-        card: discardCard,
+        card: discardSelection.card,
+        skipTargetId: discardSelection.skipTargetId,
         roundEnded: discardResult.roundEnded,
         gameEnded: discardResult.gameEnded
       });
@@ -587,7 +639,10 @@ class Game {
       pendingPhaseSelections: Array.from(this.pendingPhaseSelections.keys()),
 
       // Chaos phases (for Chaos mode)
-      chaosPhases: Object.fromEntries(this.chaosPhases)
+      chaosPhases: Object.fromEntries(this.chaosPhases),
+
+      // Skip availability - list of player IDs that can still be skipped this round
+      skipsUsedThisRound: Array.from(this.skipsUsedThisRound.keys())
     };
   }
 

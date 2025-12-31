@@ -72,6 +72,14 @@ class Deck {
     if (this.discardPile.length === 0) {
       return null;
     }
+
+    const topCard = this.discardPile[this.discardPile.length - 1];
+
+    // Skip cards cannot be picked up from discard pile
+    if (topCard.type === 'skip') {
+      return null;
+    }
+
     return this.discardPile.pop();
   }
 
@@ -122,18 +130,19 @@ class Deck {
   }
 
   // Initialize the discard pile with one card from the draw pile
+  // Returns { isSkip: true } if a Skip card is the first discard (first player should be skipped)
+  // Wild cards can be picked up by the first player per official rules
   initializeDiscardPile() {
-    let card = this.draw();
-    // Don't start with a Skip or Wild on discard pile
-    while (card && (card.type === 'skip' || card.type === 'wild')) {
-      // Put it back somewhere in the deck
-      this.cards.unshift(card);
-      this.shuffle();
-      card = this.draw();
-    }
+    const card = this.draw();
     if (card) {
       this.discardPile.push(card);
+
+      // If first discard is a Skip, return info so game can skip first player
+      if (card.type === 'skip') {
+        return { isSkip: true };
+      }
     }
+    return { isSkip: false };
   }
 
   // Reset the deck for a new round

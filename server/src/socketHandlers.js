@@ -253,7 +253,7 @@ function setupSocketHandlers(io) {
 
     // Discard card
     socket.on('discardCard', (data, callback) => {
-      const { roomCode, cardId } = data;
+      const { roomCode, cardId, targetPlayerId } = data;
       const playerId = socketToPlayer.get(socket.id);
 
       const room = roomManager.getRoom(roomCode);
@@ -262,7 +262,7 @@ function setupSocketHandlers(io) {
         return;
       }
 
-      const result = room.game.discardCard(playerId, cardId);
+      const result = room.game.discardCard(playerId, cardId, targetPlayerId);
 
       if (result.success) {
         callback({ success: true, roundEnded: result.roundEnded, gameEnded: result.gameEnded });

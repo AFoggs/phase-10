@@ -364,7 +364,8 @@ class CPUPlayer extends Player {
   }
 
   // Select a card to discard
-  selectCardToDiscard() {
+  // Returns { card, skipTargetId } - skipTargetId is only set for skip cards
+  selectCardToDiscard(allPlayers = [], skipsUsedThisRound = new Map()) {
     // Don't discard if empty hand
     if (this.hand.length === 0) return null;
 
@@ -379,13 +380,17 @@ class CPUPlayer extends Player {
     // Sort by helpfulness (least helpful first)
     cardScores.sort((a, b) => a.score - b.score);
 
+    let selectedCard;
+
     switch (this.difficulty) {
       case 'easy':
         // Sometimes discard randomly
         if (Math.random() > 0.7) {
-          return this.hand[Math.floor(Math.random() * this.hand.length)];
+          selectedCard = this.hand[Math.floor(Math.random() * this.hand.length)];
+        } else {
+          selectedCard = cardScores[0].card;
         }
-        return cardScores[0].card;
+        break;
 
       case 'medium':
         // Prefer discarding high-value unhelpful cards
@@ -397,22 +402,77 @@ class CPUPlayer extends Player {
             const bPoints = b.card.type === 'number' ? b.card.value : 25;
             return bPoints - aPoints;
           });
-          return unhelpful[0].card;
+          selectedCard = unhelpful[0].card;
+        } else {
+          selectedCard = cardScores[0].card;
         }
-        return cardScores[0].card;
+        break;
 
       case 'hard':
         // Strategic discard - avoid giving opponents useful cards
         // For simplicity, discard least helpful low-value card
         const leastHelpful = cardScores.filter(c => c.score < 0.2);
         if (leastHelpful.length > 0) {
-          return leastHelpful[0].card;
+          selectedCard = leastHelpful[0].card;
+        } else {
+          // If all cards are helpful, discard the one with lowest score
+          selectedCard = cardScores[0].card;
         }
-        // If all cards are helpful, discard the one with lowest score
-        return cardScores[0].card;
+        break;
 
       default:
-        return cardScores[0].card;
+        selectedCard = cardScores[0].card;
+    }
+
+    // If it's a skip card, select a target
+    let skipTargetId = null;
+    if (selectedCard && selectedCard.type === 'skip') {
+      skipTargetId = this.selectSkipTarget(allPlayers, skipsUsedThisRound);
+      // If no valid target available, try to discard a different card
+      if (!skipTargetId) {
+        const nonSkipCards = cardScores.filter(c => c.card.type !== 'skip');
+        if (nonSkipCards.length > 0) {
+          selectedCard = nonSkipCards[0].card;
+        }
+        // If only skip cards available and no valid targets, we must return null or skip anyway
+      }
+    }
+
+    return { card: selectedCard, skipTargetId };
+  }
+
+  // Select a target player to skip
+  selectSkipTarget(allPlayers, skipsUsedThisRound = new Map()) {
+    // Find valid targets (not self, not already skipped this round)
+    const validTargets = allPlayers.filter(p =>
+      p.id !== this.id && !skipsUsedThisRound.has(p.id)
+    );
+
+    if (validTargets.length === 0) return null;
+
+    switch (this.difficulty) {
+      case 'easy':
+        // Random target
+        return validTargets[Math.floor(Math.random() * validTargets.length)].id;
+
+      case 'medium':
+        // Skip the player with the fewest cards (closest to winning)
+        validTargets.sort((a, b) => (a.hand?.length || a.handCount || 10) - (b.hand?.length || b.handCount || 10));
+        return validTargets[0].id;
+
+      case 'hard':
+        // Skip the player who has completed their phase and has few cards
+        const dangerous = validTargets.filter(p => p.completedPhaseThisRound);
+        if (dangerous.length > 0) {
+          dangerous.sort((a, b) => (a.hand?.length || a.handCount || 10) - (b.hand?.length || b.handCount || 10));
+          return dangerous[0].id;
+        }
+        // Otherwise skip player with fewest cards
+        validTargets.sort((a, b) => (a.hand?.length || a.handCount || 10) - (b.hand?.length || b.handCount || 10));
+        return validTargets[0].id;
+
+      default:
+        return validTargets[0].id;
     }
   }
 

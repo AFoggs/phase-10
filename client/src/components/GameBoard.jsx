@@ -26,6 +26,8 @@ function GameBoard({
   const [showPhaseBuilder, setShowPhaseBuilder] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [showPhaseSelector, setShowPhaseSelector] = useState(false);
+  const [showSkipTargetSelector, setShowSkipTargetSelector] = useState(false);
+  const [pendingSkipCard, setPendingSkipCard] = useState(null);
 
   // Find current player data
   const currentPlayer = useMemo(() =>
@@ -91,15 +93,46 @@ function GameBoard({
   }, [onHitCard]);
 
   // Handle discarding
-  const handleDiscard = useCallback(async (cardId) => {
+  const handleDiscard = useCallback(async (cardId, targetPlayerId = null) => {
+    // Check if it's a skip card and needs target selection
+    const card = currentPlayer?.hand?.find(c => c.id === cardId);
+    if (card && card.type === 'skip' && !targetPlayerId) {
+      // Show skip target selector
+      setPendingSkipCard(card);
+      setShowSkipTargetSelector(true);
+      return;
+    }
+
     try {
       setError(null);
-      await onDiscardCard(cardId);
+      await onDiscardCard(cardId, targetPlayerId);
       setSelectedCards([]);
+      setPendingSkipCard(null);
+      setShowSkipTargetSelector(false);
     } catch (err) {
       setError(err);
     }
-  }, [onDiscardCard]);
+  }, [onDiscardCard, currentPlayer]);
+
+  // Handle skip target selection
+  const handleSkipTargetSelect = useCallback(async (targetId) => {
+    if (!pendingSkipCard) return;
+    try {
+      setError(null);
+      await onDiscardCard(pendingSkipCard.id, targetId);
+      setSelectedCards([]);
+      setPendingSkipCard(null);
+      setShowSkipTargetSelector(false);
+    } catch (err) {
+      setError(err);
+    }
+  }, [onDiscardCard, pendingSkipCard]);
+
+  // Cancel skip target selection
+  const handleCancelSkipTarget = useCallback(() => {
+    setPendingSkipCard(null);
+    setShowSkipTargetSelector(false);
+  }, []);
 
   // Handle phase selection (for Choice mode)
   const handleSelectPhase = useCallback(async (phaseNumber) => {
@@ -383,6 +416,63 @@ function GameBoard({
           onSubmit={handleLayPhase}
           onCancel={() => setShowPhaseBuilder(false)}
         />
+      )}
+
+      {/* Skip target selector modal */}
+      {showSkipTargetSelector && pendingSkipCard && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="text-2xl font-bold mb-4 text-accent-gold">Skip a Player</h2>
+            <p className="text-gray-400 mb-6">
+              Choose which player to skip. They will lose their next turn.
+            </p>
+
+            <div className="space-y-3">
+              {otherPlayers.map(player => {
+                const alreadySkipped = game?.skipsUsedThisRound?.includes(player.id);
+                return (
+                  <button
+                    key={player.id}
+                    onClick={() => !alreadySkipped && handleSkipTargetSelect(player.id)}
+                    disabled={alreadySkipped}
+                    className={`
+                      w-full p-4 rounded-lg text-left transition-colors flex items-center gap-3
+                      ${alreadySkipped
+                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                        : 'bg-white/5 hover:bg-white/10 cursor-pointer'
+                      }
+                    `}
+                  >
+                    <div
+                      className={`
+                        w-10 h-10 rounded-full flex items-center justify-center font-bold
+                        ${player.isComputer ? 'bg-purple-600' : 'bg-blue-600'}
+                        ${alreadySkipped ? 'opacity-50' : ''}
+                      `}
+                    >
+                      {player.isComputer ? 'CPU' : player.name[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <div className={`font-medium ${alreadySkipped ? 'text-gray-500' : 'text-white'}`}>
+                        {player.name}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {alreadySkipped ? 'Already skipped this round' : `${player.handCount} cards in hand`}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={handleCancelSkipTarget}
+              className="btn-secondary w-full mt-6"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

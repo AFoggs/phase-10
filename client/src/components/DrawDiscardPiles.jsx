@@ -50,16 +50,24 @@ function DrawDiscardPiles({
         {topDiscard ? (
           <button
             onClick={onDrawFromDiscard}
-            disabled={!canDraw}
+            disabled={!canDraw || topDiscard.type === 'skip'}
             className={`
               transition-transform duration-200
-              ${canDraw ? 'hover:scale-105 cursor-pointer' : 'cursor-not-allowed opacity-75'}
+              ${canDraw && topDiscard.type !== 'skip' ? 'hover:scale-105 cursor-pointer' : 'cursor-not-allowed opacity-75'}
             `}
           >
             <Card
               card={topDiscard}
               draggable={false}
             />
+            {/* Skip card indicator */}
+            {topDiscard.type === 'skip' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+                <div className="text-xs text-white bg-red-600/80 px-2 py-1 rounded font-bold">
+                  Can't Take
+                </div>
+              </div>
+            )}
           </button>
         ) : (
           <div className="w-20 h-28 border-2 border-dashed border-white/30 rounded-lg flex items-center justify-center text-gray-500 text-sm">
@@ -69,8 +77,11 @@ function DrawDiscardPiles({
 
         <div className="text-center mt-2 text-sm text-gray-400">
           Discard Pile
-          {canDraw && topDiscard && (
+          {canDraw && topDiscard && topDiscard.type !== 'skip' && (
             <span className="block text-accent-gold text-xs">Click to take</span>
+          )}
+          {topDiscard?.type === 'skip' && (
+            <span className="block text-red-400 text-xs">Skip cards can't be taken</span>
           )}
         </div>
       </div>
