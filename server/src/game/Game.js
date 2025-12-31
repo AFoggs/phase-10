@@ -50,7 +50,12 @@ class Game {
   ];
 
   generateCPUName() {
-    const usedNames = this.players.filter(p => p.isComputer).map(p => p.name);
+    return Game.generateCPUName(this.players);
+  }
+
+  // Static method to generate a random CPU name (can be called without a Game instance)
+  static generateCPUName(existingPlayers = []) {
+    const usedNames = existingPlayers.filter(p => p.isComputer).map(p => p.name);
     let attempts = 0;
     let name;
 

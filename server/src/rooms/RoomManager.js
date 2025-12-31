@@ -100,7 +100,7 @@ class RoomManager {
 
     const cpuPlayer = new CPUPlayer(
       nanoid(8),
-      name || `CPU ${room.players.filter(p => p.isComputer).length + 1}`,
+      name || Game.generateCPUName(room.players),
       room.settings.cpuDifficulty || 'medium'
     );
 
