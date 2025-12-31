@@ -1,6 +1,7 @@
 const { nanoid } = require('nanoid');
 const Game = require('../game/Game');
 const Player = require('../game/Player');
+const CPUPlayer = require('../game/CPUPlayer');
 
 class RoomManager {
   constructor() {
@@ -97,12 +98,11 @@ class RoomManager {
       return { success: false, error: 'Room is full' };
     }
 
-    const cpuPlayer = new Player(
+    const cpuPlayer = new CPUPlayer(
       nanoid(8),
       name || `CPU ${room.players.filter(p => p.isComputer).length + 1}`,
-      true
+      room.settings.cpuDifficulty || 'medium'
     );
-    cpuPlayer.difficulty = room.settings.cpuDifficulty;
 
     room.players.push(cpuPlayer);
 

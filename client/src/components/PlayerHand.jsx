@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import Card from './Card';
-import { sortHand } from '../utils/cardHelpers';
+import { sortByColor, sortByNumber } from '../utils/cardHelpers';
 
 function PlayerHand({
   cards,
@@ -12,9 +12,39 @@ function PlayerHand({
   maxSelect = Infinity,
   showSort = true
 }) {
-  const [sorted, setSorted] = useState(true);
+  // 'color' = by color then number, 'number' = by number then color, 'none' = original order
+  const [sortMode, setSortMode] = useState('color');
 
-  const displayCards = sorted ? sortHand(cards) : cards;
+  const getDisplayCards = () => {
+    switch (sortMode) {
+      case 'color':
+        return sortByColor(cards);
+      case 'number':
+        return sortByNumber(cards);
+      default:
+        return cards;
+    }
+  };
+
+  const displayCards = getDisplayCards();
+
+  const cycleSortMode = () => {
+    const modes = ['color', 'number', 'none'];
+    const currentIndex = modes.indexOf(sortMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setSortMode(modes[nextIndex]);
+  };
+
+  const getSortLabel = () => {
+    switch (sortMode) {
+      case 'color':
+        return 'Sorted by Color';
+      case 'number':
+        return 'Sorted by Number';
+      default:
+        return 'Original Order';
+    }
+  };
 
   const handleCardClick = useCallback((card) => {
     if (disabled) return;
@@ -44,10 +74,11 @@ function PlayerHand({
       {/* Sort toggle */}
       {showSort && cards.length > 0 && (
         <button
-          onClick={() => setSorted(!sorted)}
-          className="text-sm text-gray-400 hover:text-white transition-colors"
+          onClick={cycleSortMode}
+          className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-sm text-gray-300 hover:text-white hover:bg-white/20 transition-colors"
         >
-          {sorted ? 'Sorted by color' : 'Original order'} - Click to toggle
+          <span className="text-accent-gold">{getSortLabel()}</span>
+          <span className="text-xs text-gray-500">Click to change</span>
         </button>
       )}
 

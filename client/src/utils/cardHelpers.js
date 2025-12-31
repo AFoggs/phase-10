@@ -7,7 +7,7 @@ export const CARD_COLORS = {
 };
 
 // Sort hand by color then value
-export function sortHand(cards) {
+export function sortByColor(cards) {
   const sorted = [...cards].sort((a, b) => {
     // Wilds and skips at the end
     if (a.type !== 'number' && b.type === 'number') return 1;
@@ -26,6 +26,32 @@ export function sortHand(cards) {
   });
 
   return sorted;
+}
+
+// Sort hand by number then color
+export function sortByNumber(cards) {
+  const sorted = [...cards].sort((a, b) => {
+    // Wilds and skips at the end
+    if (a.type !== 'number' && b.type === 'number') return 1;
+    if (a.type === 'number' && b.type !== 'number') return -1;
+    if (a.type !== 'number' && b.type !== 'number') {
+      return a.type === 'wild' ? -1 : 1;
+    }
+
+    // Sort by value first
+    if (a.value !== b.value) return a.value - b.value;
+
+    // Then by color for same values
+    const colorOrder = ['red', 'blue', 'green', 'yellow'];
+    return colorOrder.indexOf(a.color) - colorOrder.indexOf(b.color);
+  });
+
+  return sorted;
+}
+
+// Legacy function for compatibility
+export function sortHand(cards, sortMode = 'color') {
+  return sortMode === 'number' ? sortByNumber(cards) : sortByColor(cards);
 }
 
 // Get card display color
@@ -210,6 +236,8 @@ export function isValidColorGroup(cards) {
 export default {
   CARD_COLORS,
   sortHand,
+  sortByColor,
+  sortByNumber,
   getCardColor,
   getCardBgClass,
   getCardTextColor,

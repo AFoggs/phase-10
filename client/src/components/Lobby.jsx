@@ -1,6 +1,20 @@
 import React, { useState } from 'react';
 import { GAME_MODES } from '../utils/phaseDefinitions';
 
+// Phase count options
+const PHASE_COUNTS = [
+  { value: '10', label: 'Phase 10', description: 'Classic 10 phases' },
+  { value: '20', label: 'Phase 20', description: 'Extended 20 phases' },
+  { value: '30', label: 'Phase 30', description: 'Ultimate 30 phases' }
+];
+
+// Game type options
+const GAME_TYPES = [
+  { value: 'normal', label: 'Normal', description: 'Complete phases in order', icon: '1-2-3' },
+  { value: 'choice', label: 'Choice', description: 'Choose your phase each round', icon: '?' },
+  { value: 'chaos', label: 'Chaos', description: 'Random phase each round', icon: '🎲' }
+];
+
 function Lobby({
   connected,
   playerId,
@@ -17,10 +31,18 @@ function Lobby({
   const [playerName, setPlayerName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedPhaseCount, setSelectedPhaseCount] = useState('10');
+  const [selectedGameType, setSelectedGameType] = useState('normal');
   const [settings, setSettings] = useState({
     maxPlayers: 4,
     mode: 'normal10'
   });
+
+  // Update mode when phase count or game type changes
+  const updateGameMode = (phaseCount, gameType) => {
+    const newMode = `${gameType}${phaseCount}`;
+    setSettings(prev => ({ ...prev, mode: newMode }));
+  };
 
   const isHost = room && room.hostId === playerId;
   const canStart = room && room.players.length >= 2;
@@ -94,9 +116,10 @@ function Lobby({
           ) : (
             <>
               {/* Game settings */}
-              <div className="bg-white/5 rounded-lg p-6 space-y-4">
-                <h3 className="text-lg font-semibold mb-4">Game Settings</h3>
+              <div className="bg-white/5 rounded-lg p-6 space-y-6">
+                <h3 className="text-lg font-semibold">Game Settings</h3>
 
+                {/* Max Players */}
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Max Players</label>
                   <select
@@ -110,20 +133,68 @@ function Lobby({
                   </select>
                 </div>
 
+                {/* Phase Count Selection */}
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Game Mode</label>
-                  <select
-                    value={settings.mode}
-                    onChange={(e) => setSettings({ ...settings, mode: e.target.value })}
-                    className="select-field"
-                  >
-                    {Object.entries(GAME_MODES).map(([key, mode]) => (
-                      <option key={key} value={key}>{mode.name}</option>
+                  <label className="block text-sm text-gray-400 mb-3">Number of Phases</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PHASE_COUNTS.map(phase => (
+                      <button
+                        key={phase.value}
+                        onClick={() => {
+                          setSelectedPhaseCount(phase.value);
+                          updateGameMode(phase.value, selectedGameType);
+                        }}
+                        className={`
+                          p-3 rounded-lg border-2 transition-all text-center
+                          ${selectedPhaseCount === phase.value
+                            ? 'border-accent-gold bg-accent-gold/20 text-white'
+                            : 'border-white/20 bg-white/5 text-gray-300 hover:border-white/40'
+                          }
+                        `}
+                      >
+                        <div className="font-bold text-lg">{phase.label}</div>
+                        <div className="text-xs text-gray-400 mt-1">{phase.description}</div>
+                      </button>
                     ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  </div>
+                </div>
+
+                {/* Game Type Selection */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-3">Game Type</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {GAME_TYPES.map(type => (
+                      <button
+                        key={type.value}
+                        onClick={() => {
+                          setSelectedGameType(type.value);
+                          updateGameMode(selectedPhaseCount, type.value);
+                        }}
+                        className={`
+                          p-3 rounded-lg border-2 transition-all text-center
+                          ${selectedGameType === type.value
+                            ? 'border-accent-gold bg-accent-gold/20 text-white'
+                            : 'border-white/20 bg-white/5 text-gray-300 hover:border-white/40'
+                          }
+                        `}
+                      >
+                        <div className="text-2xl mb-1">{type.icon}</div>
+                        <div className="font-bold">{type.label}</div>
+                        <div className="text-xs text-gray-400 mt-1">{type.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Selected Mode Summary */}
+                <div className="bg-accent-gold/10 border border-accent-gold/30 rounded-lg p-4">
+                  <div className="text-sm text-gray-400">Selected Mode:</div>
+                  <div className="text-lg font-bold text-accent-gold">
+                    {GAME_MODES[settings.mode]?.name || 'Normal Phase 10'}
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">
                     {GAME_MODES[settings.mode]?.description}
-                  </p>
+                  </div>
                 </div>
               </div>
 
