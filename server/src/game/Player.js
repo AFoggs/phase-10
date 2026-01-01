@@ -11,7 +11,7 @@ class Player {
     this.completedPhaseThisRound = false;
     this.laidDownPhase = null; // The phase cards laid on the table
     this.score = 0;
-    this.isSkipped = false;
+    this.skipCount = 0; // Number of turns to skip (can stack)
     this.connected = true;
     this.hasDrawnThisTurn = false;
   }
@@ -109,7 +109,7 @@ class Player {
     this.hand = [];
     this.completedPhaseThisRound = false;
     this.laidDownPhase = null;
-    this.isSkipped = false;
+    this.skipCount = 0;
     this.hasDrawnThisTurn = false;
   }
 
@@ -149,7 +149,7 @@ class Player {
       completedPhaseThisRound: this.completedPhaseThisRound,
       laidDownPhase: this.laidDownPhase,
       score: this.score,
-      isSkipped: this.isSkipped,
+      skipCount: this.skipCount,
       connected: this.connected
     };
   }

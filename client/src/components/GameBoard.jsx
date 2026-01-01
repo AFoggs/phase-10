@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useDrop } from 'react-dnd';
 import PlayerHand from './PlayerHand';
-import Card, { MiniCard } from './Card';
+import Card, { MiniCard, ItemTypes } from './Card';
 import PhaseDisplay from './PhaseDisplay';
 import PhaseBuilder from './PhaseBuilder';
 import DrawDiscardPiles from './DrawDiscardPiles';
@@ -463,6 +464,7 @@ function GameBoard({
               isCurrentTurn={game?.currentPlayerId === player.id}
               cpuThinking={cpuThinking === player.id}
               myPhaseCompleted={hasCompletedPhase}
+              canHitEnabled={canPlay && hasCompletedPhase}
               onHit={handleHit}
               selectedCard={selectedCards[0]}
             />
@@ -587,41 +589,32 @@ function GameBoard({
             </p>
 
             <div className="space-y-3">
-              {otherPlayers.map(player => {
-                const alreadySkipped = game?.skipsUsedThisRound?.includes(player.id);
-                return (
-                  <button
-                    key={player.id}
-                    onClick={() => !alreadySkipped && handleSkipTargetSelect(player.id)}
-                    disabled={alreadySkipped}
+              {otherPlayers.map(player => (
+                <button
+                  key={player.id}
+                  onClick={() => handleSkipTargetSelect(player.id)}
+                  className="w-full p-4 rounded-lg text-left transition-colors flex items-center gap-3 bg-white/5 hover:bg-white/10 cursor-pointer"
+                >
+                  <div
                     className={`
-                      w-full p-4 rounded-lg text-left transition-colors flex items-center gap-3
-                      ${alreadySkipped
-                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                        : 'bg-white/5 hover:bg-white/10 cursor-pointer'
-                      }
+                      w-10 h-10 rounded-full flex items-center justify-center font-bold
+                      ${player.isComputer ? 'bg-purple-600' : 'bg-blue-600'}
                     `}
                   >
-                    <div
-                      className={`
-                        w-10 h-10 rounded-full flex items-center justify-center font-bold
-                        ${player.isComputer ? 'bg-purple-600' : 'bg-blue-600'}
-                        ${alreadySkipped ? 'opacity-50' : ''}
-                      `}
-                    >
-                      {player.isComputer ? 'CPU' : player.name[0].toUpperCase()}
+                    {player.isComputer ? 'CPU' : player.name[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">
+                      {player.name}
                     </div>
-                    <div>
-                      <div className={`font-medium ${alreadySkipped ? 'text-gray-500' : 'text-white'}`}>
-                        {player.name}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {alreadySkipped ? 'Already skipped this round' : `${player.handCount} cards in hand`}
-                      </div>
+                    <div className="text-xs text-gray-400">
+                      {player.skipCount > 0
+                        ? `Skipped ${player.skipCount}x - ${player.handCount} cards`
+                        : `${player.handCount} cards in hand`}
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
+                </button>
+              ))}
             </div>
 
             <button
@@ -643,19 +636,20 @@ function OtherPlayerPanel({
   isCurrentTurn,
   cpuThinking,
   myPhaseCompleted,
+  canHitEnabled,
   onHit,
   selectedCard
 }) {
   const phaseInfo = getPhaseInfo(player.currentPhase);
 
-  // Check if selected card can hit on each group
-  const canHitGroup = useCallback((group, groupIdx) => {
-    if (!selectedCard || !phaseInfo) return false;
+  // Check if a card can hit on a specific group
+  const checkCanHit = useCallback((card, group, groupIdx) => {
+    if (!card || !phaseInfo) return false;
     const groupType = phaseInfo.requirements[groupIdx];
     if (!groupType) return false;
-    const result = canHitOnPhase(selectedCard, group, groupType);
+    const result = canHitOnPhase(card, group, groupType);
     return result.canHit;
-  }, [selectedCard, phaseInfo]);
+  }, [phaseInfo]);
 
   return (
     <div
@@ -695,30 +689,23 @@ function OtherPlayerPanel({
         {player.handCount} cards in hand
       </div>
 
-      {/* Laid down phase */}
+      {/* Laid down phase - with hit drop zones */}
       {player.laidDownPhase && (
         <div className="mt-3 space-y-2">
           <div className="text-xs text-gray-400">Completed Phase:</div>
-          {player.laidDownPhase.map((group, groupIdx) => {
-            const canHit = myPhaseCompleted && selectedCard && canHitGroup(group, groupIdx);
-            return (
-              <div key={groupIdx} className="flex flex-wrap gap-1">
-                {group.map(card => (
-                  <MiniCard key={card.id} card={card} />
-                ))}
-                {/* Hit button - only show if card can actually hit this group */}
-                {canHit && (
-                  <button
-                    onClick={() => onHit(player.id, selectedCard.id, groupIdx)}
-                    className="w-6 h-8 border border-dashed border-accent-gold rounded flex items-center justify-center text-accent-gold text-xs hover:bg-accent-gold/10"
-                    title="Hit here"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {player.laidDownPhase.map((group, groupIdx) => (
+            <HitDropZone
+              key={groupIdx}
+              playerId={player.id}
+              groupIndex={groupIdx}
+              group={group}
+              phaseInfo={phaseInfo}
+              canHitEnabled={canHitEnabled}
+              checkCanHit={checkCanHit}
+              selectedCard={selectedCard}
+              onHit={onHit}
+            />
+          ))}
         </div>
       )}
 
@@ -726,6 +713,66 @@ function OtherPlayerPanel({
       <div className="mt-3 text-right">
         <span className="score-badge">{player.score} pts</span>
       </div>
+    </div>
+  );
+}
+
+// Drop zone for hitting on a player's laid down phase group
+function HitDropZone({
+  playerId,
+  groupIndex,
+  group,
+  phaseInfo,
+  canHitEnabled,
+  checkCanHit,
+  selectedCard,
+  onHit
+}) {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ItemTypes.CARD,
+    canDrop: (item) => {
+      if (!canHitEnabled || !phaseInfo) return false;
+      return checkCanHit(item.card, group, groupIndex);
+    },
+    drop: (item) => {
+      onHit(playerId, item.card.id, groupIndex);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop()
+    })
+  }), [canHitEnabled, phaseInfo, checkCanHit, group, groupIndex, playerId, onHit]);
+
+  const canHitWithSelected = selectedCard && checkCanHit(selectedCard, group, groupIndex);
+
+  return (
+    <div
+      ref={drop}
+      className={`
+        flex flex-wrap gap-1 p-1 rounded transition-all
+        ${isOver && canDrop ? 'bg-green-500/30 ring-2 ring-green-400' : ''}
+        ${canDrop && !isOver ? 'bg-green-500/10' : ''}
+      `}
+    >
+      {group.map(card => (
+        <MiniCard key={card.id} card={card} />
+      ))}
+      {/* Hit button - show if selected card can hit, or drop indicator */}
+      {(canHitWithSelected || (isOver && canDrop)) && (
+        <button
+          onClick={() => selectedCard && onHit(playerId, selectedCard.id, groupIndex)}
+          disabled={!canHitWithSelected}
+          className={`
+            w-6 h-8 border border-dashed rounded flex items-center justify-center text-xs transition-all
+            ${isOver && canDrop
+              ? 'border-green-400 text-green-400 bg-green-500/20 scale-110'
+              : 'border-accent-gold text-accent-gold hover:bg-accent-gold/10'}
+          `}
+          title="Hit here"
+        >
+          +
+        </button>
+      )}
     </div>
   );
 }

@@ -22,9 +22,6 @@ class Game {
 
     // For Chaos mode - assigned phases per round
     this.chaosPhases = new Map();
-
-    // Track skips per player per round (only one skip per player per round allowed)
-    this.skipsUsedThisRound = new Map(); // Map of targetPlayerId -> true
   }
 
   // Add a player to the game
@@ -111,9 +108,6 @@ class Game {
     this.currentPlayerIndex = Math.floor(Math.random() * this.players.length);
     this.turnPhase = 'draw';
 
-    // Reset skip tracking for the round
-    this.skipsUsedThisRound = new Map();
-
     // Deal cards to all players
     for (const player of this.players) {
       player.resetForNewRound();
@@ -125,11 +119,10 @@ class Game {
     // Initialize discard pile (may return a skip card that should skip first player)
     const firstDiscardResult = this.deck.initializeDiscardPile();
 
-    // If first discard is a skip, skip the first player
+    // If first discard is a skip, skip the first player (increment skip count)
     if (firstDiscardResult && firstDiscardResult.isSkip) {
       const firstPlayer = this.getCurrentPlayer();
-      firstPlayer.isSkipped = true;
-      this.skipsUsedThisRound.set(firstPlayer.id, true);
+      firstPlayer.skipCount++;
     }
 
     // For Chaos mode, assign random phases
@@ -220,8 +213,9 @@ class Game {
       return { success: false, error: 'Already drew a card this turn' };
     }
 
-    if (currentPlayer.isSkipped) {
-      currentPlayer.isSkipped = false;
+    // If player has skip count, decrement and skip their turn
+    if (currentPlayer.skipCount > 0) {
+      currentPlayer.skipCount--;
       this.advanceTurn();
       return { success: true, skipped: true };
     }
@@ -404,14 +398,8 @@ class Game {
         return { success: false, error: 'Target player not found' };
       }
 
-      // Only one skip per player per round
-      if (this.skipsUsedThisRound.has(targetPlayerId)) {
-        return { success: false, error: 'This player has already been skipped this round' };
-      }
-
-      // Mark the target as skipped
-      targetPlayer.isSkipped = true;
-      this.skipsUsedThisRound.set(targetPlayerId, true);
+      // Increment skip count (skips can stack)
+      targetPlayer.skipCount++;
     }
 
     // Remove card from hand after validation passes
@@ -445,12 +433,13 @@ class Game {
     const nextPlayer = this.getCurrentPlayer();
     nextPlayer.hasDrawnThisTurn = false;
 
-    // If next player is skipped, skip them
-    if (nextPlayer.isSkipped) {
-      nextPlayer.isSkipped = false;
+    // If next player has skip counts, decrement and skip them
+    if (nextPlayer.skipCount > 0) {
+      nextPlayer.skipCount--;
       this.lastAction = {
         type: 'skipped',
-        playerId: nextPlayer.id
+        playerId: nextPlayer.id,
+        remainingSkips: nextPlayer.skipCount
       };
       this.advanceTurn();
       return;
@@ -536,9 +525,6 @@ class Game {
     this.roundNumber++;
     this.deck.reset();
 
-    // Reset skip tracking for the new round
-    this.skipsUsedThisRound = new Map();
-
     // Reset all players for new round
     for (const player of this.players) {
       player.resetForNewRound();
@@ -581,11 +567,10 @@ class Game {
     this.currentPlayerIndex = Math.floor(Math.random() * this.players.length);
     this.turnPhase = 'draw';
 
-    // If first discard is a skip, skip the first player
+    // If first discard is a skip, skip the first player (increment skip count)
     if (firstDiscardResult && firstDiscardResult.isSkip) {
       const firstPlayer = this.getCurrentPlayer();
-      firstPlayer.isSkipped = true;
-      this.skipsUsedThisRound.set(firstPlayer.id, true);
+      firstPlayer.skipCount++;
     }
 
     this.lastAction = {
@@ -644,7 +629,7 @@ class Game {
     }
 
     // 4. Discard
-    const discardSelection = cpu.selectCardToDiscard(this.players, this.skipsUsedThisRound);
+    const discardSelection = cpu.selectCardToDiscard(this.players);
     if (discardSelection && discardSelection.card) {
       const discardResult = this.discardCard(cpuId, discardSelection.card.id, discardSelection.skipTargetId);
       actions.push({
@@ -693,10 +678,7 @@ class Game {
       pendingPhaseSelections: Array.from(this.pendingPhaseSelections.keys()),
 
       // Chaos phases (for Chaos mode)
-      chaosPhases: Object.fromEntries(this.chaosPhases),
-
-      // Skip availability - list of player IDs that can still be skipped this round
-      skipsUsedThisRound: Array.from(this.skipsUsedThisRound.keys())
+      chaosPhases: Object.fromEntries(this.chaosPhases)
     };
   }
 

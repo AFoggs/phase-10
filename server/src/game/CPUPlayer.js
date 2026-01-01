@@ -365,7 +365,7 @@ class CPUPlayer extends Player {
 
   // Select a card to discard
   // Returns { card, skipTargetId } - skipTargetId is only set for skip cards
-  selectCardToDiscard(allPlayers = [], skipsUsedThisRound = new Map()) {
+  selectCardToDiscard(allPlayers = []) {
     // Don't discard if empty hand
     if (this.hand.length === 0) return null;
 
@@ -427,7 +427,7 @@ class CPUPlayer extends Player {
     // If it's a skip card, select a target
     let skipTargetId = null;
     if (selectedCard && selectedCard.type === 'skip') {
-      skipTargetId = this.selectSkipTarget(allPlayers, skipsUsedThisRound);
+      skipTargetId = this.selectSkipTarget(allPlayers);
       // If no valid target available, try to discard a different card
       if (!skipTargetId) {
         const nonSkipCards = cardScores.filter(c => c.card.type !== 'skip');
@@ -442,11 +442,9 @@ class CPUPlayer extends Player {
   }
 
   // Select a target player to skip
-  selectSkipTarget(allPlayers, skipsUsedThisRound = new Map()) {
-    // Find valid targets (not self, not already skipped this round)
-    const validTargets = allPlayers.filter(p =>
-      p.id !== this.id && !skipsUsedThisRound.has(p.id)
-    );
+  selectSkipTarget(allPlayers) {
+    // Find valid targets (not self - skips can stack so all other players are valid)
+    const validTargets = allPlayers.filter(p => p.id !== this.id);
 
     if (validTargets.length === 0) return null;
 
