@@ -20,6 +20,7 @@ function App() {
   const [error, setError] = useState(null);
   const [cpuThinking, setCpuThinking] = useState(null);
   const [skipNotification, setSkipNotification] = useState(null);
+  const [deckExhaustedNotification, setDeckExhaustedNotification] = useState(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -107,6 +108,12 @@ function App() {
       setSkipNotification({ skippedPlayerId, skippedPlayerName });
     });
 
+    socket.on('deckExhausted', ({ message }) => {
+      setDeckExhaustedNotification({ message });
+      // Auto-clear after 5 seconds
+      setTimeout(() => setDeckExhaustedNotification(null), 5000);
+    });
+
     return () => {
       socket.off('roomUpdated');
       socket.off('playerJoined');
@@ -120,6 +127,7 @@ function App() {
       socket.off('gameEnded');
       socket.off('newRoundStarted');
       socket.off('playerSkipped');
+      socket.off('deckExhausted');
     };
   }, [socket]);
 
@@ -360,6 +368,7 @@ function App() {
             cpuThinking={cpuThinking}
             skipNotification={skipNotification}
             onClearSkipNotification={() => setSkipNotification(null)}
+            deckExhaustedNotification={deckExhaustedNotification}
             onDrawCard={handleDrawCard}
             onLayDownPhase={handleLayDownPhase}
             onHitCard={handleHitCard}

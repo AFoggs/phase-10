@@ -17,6 +17,7 @@ function GameBoard({
   cpuThinking,
   skipNotification: externalSkipNotification,
   onClearSkipNotification,
+  deckExhaustedNotification,
   onDrawCard,
   onLayDownPhase,
   onHitCard,
@@ -328,13 +329,31 @@ function GameBoard({
   // Round end screen
   if (game?.phase === 'roundEnd') {
     const isHost = room?.hostId === playerId;
+    const isDeckExhausted = game?.lastAction?.deckExhausted;
+    const roundWinner = isDeckExhausted ? null : game?.players?.find(p => p.id === game?.lastAction?.roundWinnerId);
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-accent-gold mb-4">
-            Round {game.roundNumber} Complete!
-          </h1>
+          {isDeckExhausted ? (
+            <>
+              <h1 className="text-4xl font-bold text-amber-500 mb-4">
+                Deck Exhausted!
+              </h1>
+              <p className="text-gray-300 text-lg">
+                The deck ran out of cards. All players' remaining cards are scored.
+              </p>
+            </>
+          ) : (
+            <h1 className="text-4xl font-bold text-accent-gold mb-4">
+              Round {game.roundNumber} Complete!
+            </h1>
+          )}
+          {roundWinner && (
+            <p className="text-gray-300 text-lg mt-2">
+              {roundWinner.name} went out first!
+            </p>
+          )}
         </div>
 
         <ScoreBoard players={game.players} playerId={playerId} />
@@ -393,6 +412,19 @@ function GameBoard({
       {error && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
           {error}
+        </div>
+      )}
+
+      {/* Deck exhausted notification */}
+      {deckExhaustedNotification && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 px-10 py-5 rounded-xl shadow-2xl z-50
+          flex flex-col items-center gap-2 animate-bounce-in border-2
+          bg-gradient-to-r from-amber-600 to-orange-600 text-white border-amber-400">
+          <span className="text-4xl">🃏</span>
+          <span className="font-black text-2xl tracking-wide">
+            Deck Exhausted!
+          </span>
+          <span className="text-sm opacity-90">Round ending, scoring all hands...</span>
         </div>
       )}
 

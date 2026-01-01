@@ -214,8 +214,40 @@ function setupSocketHandlers(io) {
       const result = room.game.drawCard(playerId, source);
 
       if (result.success) {
-        callback({ success: true, card: result.card });
-        broadcastGameState(io, roomCode);
+        // Check if deck was exhausted (triggers round end)
+        if (result.deckExhausted) {
+          callback({
+            success: true,
+            deckExhausted: true,
+            roundEnded: result.roundEnded,
+            gameEnded: result.gameEnded
+          });
+
+          broadcastGameState(io, roomCode);
+
+          // Emit deck exhausted event for UI notification
+          io.to(roomCode.toUpperCase()).emit('deckExhausted', {
+            message: 'Deck ran out! Round ending...'
+          });
+
+          if (result.roundEnded && !result.gameEnded) {
+            io.to(roomCode.toUpperCase()).emit('roundEnded', {
+              roundWinnerId: null,
+              deckExhausted: true
+            });
+          }
+
+          if (result.gameEnded) {
+            io.to(roomCode.toUpperCase()).emit('gameEnded', {
+              winnerId: result.winnerId,
+              deckExhausted: true
+            });
+            room.status = 'finished';
+          }
+        } else {
+          callback({ success: true, card: result.card });
+          broadcastGameState(io, roomCode);
+        }
       } else {
         callback({ success: false, error: result.error });
       }

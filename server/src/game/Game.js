@@ -239,7 +239,9 @@ class Game {
     } else {
       card = this.deck.draw();
       if (!card) {
-        return { success: false, error: 'Deck is empty' };
+        // Deck is exhausted (even after reshuffling discard pile)
+        // End the round immediately with no winner
+        return this.endRoundDeckExhausted();
       }
     }
 
@@ -523,6 +525,72 @@ class Game {
       roundEnded: true,
       gameEnded: false,
       roundWinnerId: winnerId
+    };
+  }
+
+  // End round due to deck exhaustion (no winner)
+  endRoundDeckExhausted() {
+    this.phase = 'roundEnd';
+
+    // Calculate scores for ALL players (everyone still has cards)
+    for (const player of this.players) {
+      const points = calculateHandPoints(player.hand);
+      player.addScore(points);
+
+      // Advance phase for players who completed it this round
+      if (player.completedPhaseThisRound) {
+        player.advancePhase();
+      }
+    }
+
+    // Check for game winner (someone completed all phases)
+    const maxPhase = this.getMaxPhase();
+    const gameWinner = this.players.find(p => p.currentPhase > maxPhase);
+
+    if (gameWinner) {
+      this.phase = 'gameEnd';
+      this.winner = gameWinner.id;
+
+      this.lastAction = {
+        type: 'gameEnd',
+        winnerId: gameWinner.id,
+        deckExhausted: true,
+        scores: this.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          score: p.score,
+          currentPhase: p.currentPhase
+        }))
+      };
+
+      return {
+        success: true,
+        roundEnded: true,
+        gameEnded: true,
+        deckExhausted: true,
+        winnerId: gameWinner.id
+      };
+    }
+
+    this.lastAction = {
+      type: 'roundEnd',
+      roundWinnerId: null,
+      deckExhausted: true,
+      scores: this.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        score: p.score,
+        currentPhase: p.currentPhase,
+        completedPhase: p.completedPhaseThisRound
+      }))
+    };
+
+    return {
+      success: true,
+      roundEnded: true,
+      gameEnded: false,
+      deckExhausted: true,
+      roundWinnerId: null
     };
   }
 
