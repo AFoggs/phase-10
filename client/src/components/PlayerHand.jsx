@@ -57,8 +57,11 @@ function PlayerHand({
       if (isSelected) {
         // Deselect
         onCardSelect(selectedCards.filter(c => c.id !== card.id));
+      } else if (maxSelect === 1) {
+        // When max is 1, replace the selection (no need to deselect first)
+        onCardSelect([card]);
       } else if (selectedCards.length < maxSelect) {
-        // Select
+        // Add to selection
         onCardSelect([...selectedCards, card]);
       }
     }

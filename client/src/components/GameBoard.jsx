@@ -15,6 +15,8 @@ function GameBoard({
   roomCode,
   room,
   cpuThinking,
+  skipNotification: externalSkipNotification,
+  onClearSkipNotification,
   onDrawCard,
   onLayDownPhase,
   onHitCard,
@@ -198,43 +200,29 @@ function GameBoard({
     }
   }, [game?.phase, game?.winner, playerId, playSound]);
 
-  // Watch for skip actions and show notification
+  // Watch for skip notifications from dedicated socket event
   React.useEffect(() => {
-    const lastAction = game?.lastAction;
-    if (!lastAction) return;
+    if (!externalSkipNotification) return;
 
-    // Show notification when someone is skipped
-    if (lastAction.type === 'discard' && lastAction.skippedPlayerId) {
-      const skippedPlayer = game?.players?.find(p => p.id === lastAction.skippedPlayerId);
-      if (skippedPlayer) {
-        const isMe = lastAction.skippedPlayerId === playerId;
-        if (isMe) {
-          playSound('skipped');
-        }
-        setNotification({
-          type: 'skip',
-          skippedPlayerName: skippedPlayer.name,
-          isMe: isMe
-        });
-      }
+    const { skippedPlayerId, skippedPlayerName } = externalSkipNotification;
+    const isMe = skippedPlayerId === playerId;
+
+    if (isMe) {
+      playSound('skipped');
     }
 
-    // Show notification when a player is auto-skipped at turn start
-    if (lastAction.type === 'skipped') {
-      const skippedPlayer = game?.players?.find(p => p.id === lastAction.playerId);
-      if (skippedPlayer) {
-        const isMe = lastAction.playerId === playerId;
-        if (isMe) {
-          playSound('skipped');
-        }
-        setNotification({
-          type: 'skip',
-          skippedPlayerName: skippedPlayer.name,
-          isMe: isMe
-        });
-      }
+    setNotification({
+      type: 'skip',
+      skippedPlayerName: skippedPlayerName,
+      isMe: isMe
+    });
+
+    // Clear the external notification after processing
+    if (onClearSkipNotification) {
+      // Use a small delay to ensure the notification is shown first
+      setTimeout(() => onClearSkipNotification(), 100);
     }
-  }, [game?.lastAction, game?.players, playerId, playSound]);
+  }, [externalSkipNotification, playerId, playSound, onClearSkipNotification]);
 
   // Clear notification after timeout
   React.useEffect(() => {

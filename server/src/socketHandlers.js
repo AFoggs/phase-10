@@ -266,6 +266,19 @@ function setupSocketHandlers(io) {
 
       if (result.success) {
         callback({ success: true, roundEnded: result.roundEnded, gameEnded: result.gameEnded });
+
+        // Emit skip notification BEFORE broadcasting game state
+        // This ensures the notification is sent even if CPU turns follow immediately
+        if (targetPlayerId) {
+          const skippedPlayer = room.game.players.find(p => p.id === targetPlayerId);
+          if (skippedPlayer) {
+            io.to(roomCode.toUpperCase()).emit('playerSkipped', {
+              skippedPlayerId: targetPlayerId,
+              skippedPlayerName: skippedPlayer.name
+            });
+          }
+        }
+
         broadcastGameState(io, roomCode);
 
         if (result.roundEnded && !result.gameEnded) {

@@ -19,6 +19,7 @@ function App() {
   const [game, setGame] = useState(null);
   const [error, setError] = useState(null);
   const [cpuThinking, setCpuThinking] = useState(null);
+  const [skipNotification, setSkipNotification] = useState(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -102,6 +103,10 @@ function App() {
       setCpuThinking(null);
     });
 
+    socket.on('playerSkipped', ({ skippedPlayerId, skippedPlayerName }) => {
+      setSkipNotification({ skippedPlayerId, skippedPlayerName });
+    });
+
     return () => {
       socket.off('roomUpdated');
       socket.off('playerJoined');
@@ -114,6 +119,7 @@ function App() {
       socket.off('roundEnded');
       socket.off('gameEnded');
       socket.off('newRoundStarted');
+      socket.off('playerSkipped');
     };
   }, [socket]);
 
@@ -352,6 +358,8 @@ function App() {
             roomCode={roomCode}
             room={room}
             cpuThinking={cpuThinking}
+            skipNotification={skipNotification}
+            onClearSkipNotification={() => setSkipNotification(null)}
             onDrawCard={handleDrawCard}
             onLayDownPhase={handleLayDownPhase}
             onHitCard={handleHitCard}
