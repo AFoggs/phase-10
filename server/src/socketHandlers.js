@@ -264,10 +264,19 @@ function setupSocketHandlers(io) {
         return;
       }
 
+      const player = room.game.players.find(p => p.id === playerId);
       const result = room.game.layDownPhase(playerId, cardGroups);
 
       if (result.success) {
         callback({ success: true, phaseNumber: result.phaseNumber });
+
+        // Emit phase out notification
+        io.to(roomCode.toUpperCase()).emit('playerPhasedOut', {
+          playerId: playerId,
+          playerName: player?.name,
+          phaseNumber: result.phaseNumber
+        });
+
         broadcastGameState(io, roomCode);
       } else {
         callback({ success: false, error: result.error });
@@ -525,6 +534,15 @@ async function checkAndExecuteCPUTurn(io, roomCode) {
           playerId: currentPlayer.id,
           action
         });
+
+        // Emit phase out notification for CPU
+        if (action.type === 'layPhase') {
+          io.to(roomCode.toUpperCase()).emit('playerPhasedOut', {
+            playerId: currentPlayer.id,
+            playerName: currentPlayer.name,
+            phaseNumber: currentPlayer.currentPhase
+          });
+        }
 
         // Emit hit notification for CPU hits
         if (action.type === 'hit') {

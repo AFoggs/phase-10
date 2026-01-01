@@ -19,6 +19,7 @@ function GameBoard({
   onClearSkipNotification,
   deckExhaustedNotification,
   hitNotification,
+  phaseOutNotification,
   onDrawCard,
   onLayDownPhase,
   onHitCard,
@@ -447,6 +448,27 @@ function GameBoard({
               {hitNotification.card?.type === 'wild' ? 'Wild' :
                hitNotification.card?.type === 'number' ? `${hitNotification.card.value} ${hitNotification.card.color}` :
                'Card'} → {hitNotification.targetPlayerId === playerId ? 'your' : `${hitNotification.targetPlayerName}'s`} phase
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Phase out notification */}
+      {phaseOutNotification && (
+        <div className={`
+          fixed top-16 left-1/2 -translate-x-1/2 px-8 py-4 rounded-xl shadow-2xl z-50
+          flex items-center gap-3 animate-bounce-in border-2
+          ${phaseOutNotification.playerId === playerId
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-300'
+            : 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-purple-300'}
+        `}>
+          <span className="text-3xl">⭐</span>
+          <div className="flex flex-col">
+            <span className="font-black text-xl">
+              {phaseOutNotification.playerId === playerId ? 'You completed' : `${phaseOutNotification.playerName} completed`} Phase {phaseOutNotification.phaseNumber}!
+            </span>
+            <span className="text-sm opacity-90">
+              {phaseOutNotification.playerId === playerId ? 'You can now hit on other phases!' : 'They can now hit on phases!'}
             </span>
           </div>
         </div>

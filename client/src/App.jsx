@@ -22,6 +22,7 @@ function App() {
   const [skipNotification, setSkipNotification] = useState(null);
   const [deckExhaustedNotification, setDeckExhaustedNotification] = useState(null);
   const [hitNotification, setHitNotification] = useState(null);
+  const [phaseOutNotification, setPhaseOutNotification] = useState(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -121,6 +122,12 @@ function App() {
       setTimeout(() => setHitNotification(null), 2500);
     });
 
+    socket.on('playerPhasedOut', ({ playerId, playerName, phaseNumber }) => {
+      setPhaseOutNotification({ playerId, playerName, phaseNumber });
+      // Auto-clear after 3 seconds
+      setTimeout(() => setPhaseOutNotification(null), 3000);
+    });
+
     return () => {
       socket.off('roomUpdated');
       socket.off('playerJoined');
@@ -136,6 +143,7 @@ function App() {
       socket.off('playerSkipped');
       socket.off('deckExhausted');
       socket.off('playerHit');
+      socket.off('playerPhasedOut');
     };
   }, [socket]);
 
@@ -378,6 +386,7 @@ function App() {
             onClearSkipNotification={() => setSkipNotification(null)}
             deckExhaustedNotification={deckExhaustedNotification}
             hitNotification={hitNotification}
+            phaseOutNotification={phaseOutNotification}
             onDrawCard={handleDrawCard}
             onLayDownPhase={handleLayDownPhase}
             onHitCard={handleHitCard}
