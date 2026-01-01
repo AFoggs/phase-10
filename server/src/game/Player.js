@@ -79,11 +79,60 @@ class Player {
   }
 
   // Add a card to the laid down phase (hitting)
-  hitOnPhase(groupIndex, card) {
+  // For runs, insert in sorted order; for sets/colors, append to end
+  hitOnPhase(groupIndex, card, groupType = null) {
     if (!this.laidDownPhase || !this.laidDownPhase[groupIndex]) {
       return false;
     }
-    this.laidDownPhase[groupIndex].push(card);
+
+    const group = this.laidDownPhase[groupIndex];
+
+    // Check if this is a run type (needs sorted insertion)
+    const isRunType = groupType && (
+      groupType.type === 'run' ||
+      groupType.type === 'colorRun' ||
+      groupType.type === 'oddRun' ||
+      groupType.type === 'evenRun' ||
+      groupType.type === 'oddColorRun' ||
+      groupType.type === 'evenColorRun'
+    );
+
+    if (isRunType && card.type === 'number') {
+      // For runs, insert in the correct sorted position by value
+      // Find the effective value for each card (wilds take context-dependent values)
+      const getEffectiveValue = (c, idx, arr) => {
+        if (c.type === 'wild') {
+          // Wild's effective value is inferred from surrounding cards
+          // Look at neighbors to determine what value the wild represents
+          const prevCard = arr[idx - 1];
+          const nextCard = arr[idx + 1];
+          if (prevCard && prevCard.type === 'number') {
+            return prevCard.value + 1;
+          } else if (nextCard && nextCard.type === 'number') {
+            return nextCard.value - 1;
+          }
+          return 0; // Fallback
+        }
+        return c.value;
+      };
+
+      // Find where to insert the new card
+      let insertIndex = group.length; // Default to end
+      for (let i = 0; i < group.length; i++) {
+        const effectiveValue = getEffectiveValue(group[i], i, group);
+        if (card.value < effectiveValue) {
+          insertIndex = i;
+          break;
+        }
+      }
+
+      // Insert at the correct position
+      group.splice(insertIndex, 0, card);
+    } else {
+      // For sets and color groups, just append
+      group.push(card);
+    }
+
     return true;
   }
 

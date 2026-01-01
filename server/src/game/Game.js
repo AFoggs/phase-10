@@ -344,9 +344,9 @@ class Game {
       return { success: false, error: hitResult.reason };
     }
 
-    // Execute the hit
+    // Execute the hit - pass groupType so runs can be sorted correctly
     currentPlayer.removeCard(cardId);
-    targetPlayer.hitOnPhase(groupIndex, card);
+    targetPlayer.hitOnPhase(groupIndex, card, groupType);
 
     this.lastAction = {
       type: 'hit',
