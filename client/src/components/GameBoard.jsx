@@ -18,6 +18,7 @@ function GameBoard({
   skipNotification: externalSkipNotification,
   onClearSkipNotification,
   deckExhaustedNotification,
+  hitNotification,
   onDrawCard,
   onLayDownPhase,
   onHitCard,
@@ -425,6 +426,29 @@ function GameBoard({
             Deck Exhausted!
           </span>
           <span className="text-sm opacity-90">Round ending, scoring all hands...</span>
+        </div>
+      )}
+
+      {/* Hit notification */}
+      {hitNotification && (
+        <div className={`
+          fixed top-16 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl z-50
+          flex items-center gap-3 animate-bounce-in border-2
+          ${hitNotification.hittingPlayerId === playerId
+            ? 'bg-green-600 text-white border-green-400'
+            : 'bg-blue-600 text-white border-blue-400'}
+        `}>
+          <span className="text-2xl">🎯</span>
+          <div className="flex flex-col">
+            <span className="font-bold text-lg">
+              {hitNotification.hittingPlayerId === playerId ? 'You' : hitNotification.hittingPlayerName} hit!
+            </span>
+            <span className="text-sm opacity-90">
+              {hitNotification.card?.type === 'wild' ? 'Wild' :
+               hitNotification.card?.type === 'number' ? `${hitNotification.card.value} ${hitNotification.card.color}` :
+               'Card'} → {hitNotification.targetPlayerId === playerId ? 'your' : `${hitNotification.targetPlayerName}'s`} phase
+            </span>
+          </div>
         </div>
       )}
 

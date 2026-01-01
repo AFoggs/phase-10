@@ -285,10 +285,25 @@ function setupSocketHandlers(io) {
         return;
       }
 
+      // Get card info before hit (for notification)
+      const hittingPlayer = room.game.players.find(p => p.id === playerId);
+      const targetPlayer = room.game.players.find(p => p.id === targetPlayerId);
+      const card = hittingPlayer?.getCard(cardId);
+
       const result = room.game.hitCard(playerId, targetPlayerId, cardId, groupIndex);
 
       if (result.success) {
         callback({ success: true });
+
+        // Emit hit notification
+        io.to(roomCode.toUpperCase()).emit('playerHit', {
+          hittingPlayerId: playerId,
+          hittingPlayerName: hittingPlayer?.name,
+          targetPlayerId: targetPlayerId,
+          targetPlayerName: targetPlayer?.name,
+          card: card
+        });
+
         broadcastGameState(io, roomCode);
       } else {
         callback({ success: false, error: result.error });
