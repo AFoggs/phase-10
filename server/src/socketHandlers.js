@@ -525,6 +525,30 @@ async function checkAndExecuteCPUTurn(io, roomCode) {
           playerId: currentPlayer.id,
           action
         });
+
+        // Emit hit notification for CPU hits
+        if (action.type === 'hit') {
+          const targetPlayer = room.game.players.find(p => p.id === action.targetPlayerId);
+          io.to(roomCode.toUpperCase()).emit('playerHit', {
+            hittingPlayerId: currentPlayer.id,
+            hittingPlayerName: currentPlayer.name,
+            targetPlayerId: action.targetPlayerId,
+            targetPlayerName: targetPlayer?.name,
+            card: action.card
+          });
+        }
+
+        // Emit skip notification for CPU skip cards
+        if (action.type === 'discard' && action.skipTargetId) {
+          const skippedPlayer = room.game.players.find(p => p.id === action.skipTargetId);
+          if (skippedPlayer) {
+            io.to(roomCode.toUpperCase()).emit('playerSkipped', {
+              skippedPlayerId: action.skipTargetId,
+              skippedPlayerName: skippedPlayer.name
+            });
+          }
+        }
+
         await new Promise(resolve => setTimeout(resolve, CPU_ACTION_DELAY));
       }
 
@@ -543,8 +567,9 @@ async function checkAndExecuteCPUTurn(io, roomCode) {
             winnerId: room.game.winner
           });
           room.status = 'finished';
-          return;
         }
+        // Round ended - don't continue with more CPU turns
+        return;
       }
 
       // Check if next player is also CPU
