@@ -650,11 +650,10 @@ function canHitOnPhase(card, existingGroup, groupType) {
     case 'evenRun':
     case 'oddColorRun':
     case 'evenColorRun': {
-      // Calculate effective values for all cards including wilds
-      // Wilds take on the value needed to fill gaps in the sequence
+      // Calculate effective values based on card positions in the run
+      // Wilds take on values based on their position relative to number cards
       const numberCards = existingGroup.filter(c => c.type === 'number');
       const numberValues = numberCards.map(c => c.value).sort((a, b) => a - b);
-      const wildCount = existingGroup.filter(c => c.type === 'wild').length;
 
       if (numberValues.length === 0) {
         // All wilds - any valid number can extend
@@ -664,50 +663,39 @@ function canHitOnPhase(card, existingGroup, groupType) {
         return { canHit: true };
       }
 
-      const minNumberVal = Math.min(...numberValues);
-      const maxNumberVal = Math.max(...numberValues);
+      // Calculate effective value for each card in the run based on position
+      // This properly handles wilds at the beginning, middle, or end
+      const effectiveValues = [];
 
-      // Calculate all effective values in the run (including what wilds represent)
-      // Wilds first fill gaps between number cards, then extend the ends
-      const allEffectiveValues = new Set(numberValues);
-
-      // Count gaps that need to be filled by wilds
-      let gapsToFill = 0;
-      for (let v = minNumberVal + 1; v < maxNumberVal; v++) {
-        if (!numberValues.includes(v)) {
-          gapsToFill++;
-          allEffectiveValues.add(v); // A wild fills this gap
+      // Find the first and last number card indices to anchor the run
+      let firstNumIdx = -1;
+      let lastNumIdx = -1;
+      for (let i = 0; i < existingGroup.length; i++) {
+        if (existingGroup[i].type === 'number') {
+          if (firstNumIdx === -1) firstNumIdx = i;
+          lastNumIdx = i;
         }
       }
 
-      // Remaining wilds extend the run at ends
-      const remainingWilds = wildCount - gapsToFill;
-      let extendLow = Math.floor(remainingWilds / 2);
-      let extendHigh = remainingWilds - extendLow;
-
-      // Extend lower end (but not below 1)
-      for (let i = 0; i < extendLow; i++) {
-        const val = minNumberVal - 1 - i;
-        if (val >= 1) allEffectiveValues.add(val);
-        else extendHigh++; // If can't go lower, extend higher instead
-      }
-      // Extend upper end (but not above 12)
-      for (let i = 0; i < extendHigh; i++) {
-        const val = maxNumberVal + 1 + i;
-        if (val <= 12) allEffectiveValues.add(val);
+      // Calculate effective values based on positions
+      const firstNumValue = existingGroup[firstNumIdx].value;
+      for (let i = 0; i < existingGroup.length; i++) {
+        // Effective value = first number card's value - (distance from first number card)
+        const effectiveVal = firstNumValue - (firstNumIdx - i);
+        effectiveValues.push(effectiveVal);
       }
 
-      const effectiveMinVal = Math.min(...allEffectiveValues);
-      const effectiveMaxVal = Math.max(...allEffectiveValues);
+      const effectiveMinVal = Math.min(...effectiveValues);
+      const effectiveMaxVal = Math.max(...effectiveValues);
 
-      // Check if this value is already represented in the run (by number or wild)
-      if (allEffectiveValues.has(card.value)) {
+      // Check if this value is already represented in the run
+      if (effectiveValues.includes(card.value)) {
         return { canHit: false, reason: 'Value already in run' };
       }
 
-      // Check if card extends the run at either end
+      // Check if card extends the run at either end ONLY
       if (card.value !== effectiveMinVal - 1 && card.value !== effectiveMaxVal + 1) {
-        return { canHit: false, reason: 'Card must extend the run' };
+        return { canHit: false, reason: 'Card must extend the run at either end' };
       }
 
       // Check bounds
