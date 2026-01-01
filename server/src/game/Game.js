@@ -261,11 +261,15 @@ class Game {
 
   // Lay down a phase
   layDownPhase(playerId, cardGroups) {
+    console.log('[PHASE] Starting layDownPhase');
+
     if (this.phase !== 'playing') {
       return { success: false, error: 'Game not in playing phase' };
     }
 
     const currentPlayer = this.getCurrentPlayer();
+    console.log('[PHASE] Current player hand count before:', currentPlayer.hand.length);
+
     if (currentPlayer.id !== playerId) {
       return { success: false, error: 'Not your turn' };
     }
@@ -310,11 +314,15 @@ class Game {
 
   // Hit on another player's phase
   hitCard(playerId, targetPlayerId, cardId, groupIndex) {
+    console.log('[HIT] Starting hit:', { playerId, targetPlayerId, cardId, groupIndex });
+
     if (this.phase !== 'playing') {
       return { success: false, error: 'Game not in playing phase' };
     }
 
     const currentPlayer = this.getCurrentPlayer();
+    console.log('[HIT] Current player hand count before:', currentPlayer.hand.length);
+
     if (currentPlayer.id !== playerId) {
       return { success: false, error: 'Not your turn' };
     }
@@ -357,7 +365,8 @@ class Game {
     }
 
     // Execute the hit - pass groupType so runs can be sorted correctly
-    currentPlayer.removeCard(cardId);
+    const removedCard = currentPlayer.removeCard(cardId);
+    console.log('[HIT] Removed card:', removedCard?.id, 'Hand count after:', currentPlayer.hand.length);
     targetPlayer.hitOnPhase(groupIndex, card, groupType);
 
     this.lastAction = {
@@ -374,11 +383,20 @@ class Game {
   // Discard a card and end turn
   // targetPlayerId is optional - only used for skip cards to specify who to skip
   discardCard(playerId, cardId, targetPlayerId = null) {
+    console.log('[DISCARD] Starting discard:', {
+      playerId,
+      cardId,
+      gamePhase: this.phase,
+      turnPhase: this.turnPhase
+    });
+
     if (this.phase !== 'playing') {
       return { success: false, error: 'Game not in playing phase' };
     }
 
     const currentPlayer = this.getCurrentPlayer();
+    console.log('[DISCARD] Current player:', currentPlayer.id, 'Hand count before:', currentPlayer.hand.length);
+
     if (currentPlayer.id !== playerId) {
       return { success: false, error: 'Not your turn' };
     }
@@ -415,7 +433,8 @@ class Game {
     }
 
     // Remove card from hand after validation passes
-    currentPlayer.removeCard(cardId);
+    const removedCard = currentPlayer.removeCard(cardId);
+    console.log('[DISCARD] Removed card:', removedCard?.id, 'Hand count after:', currentPlayer.hand.length);
     this.deck.discard(card);
 
     this.lastAction = {
@@ -427,11 +446,16 @@ class Game {
     };
 
     // Check if player won the round
+    console.log('[DISCARD] Checking for round end. Hand length:', currentPlayer.hand.length);
     if (currentPlayer.hand.length === 0) {
-      return this.endRound(playerId);
+      console.log('[DISCARD] Hand is empty! Calling endRound');
+      const endResult = this.endRound(playerId);
+      console.log('[DISCARD] endRound result:', endResult);
+      return endResult;
     }
 
     // Advance to next turn
+    console.log('[DISCARD] Hand not empty, advancing turn');
     this.advanceTurn();
 
     return { success: true, turnEnded: true };

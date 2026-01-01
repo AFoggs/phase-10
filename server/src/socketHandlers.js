@@ -331,6 +331,8 @@ function setupSocketHandlers(io) {
       }
 
       const result = room.game.discardCard(playerId, cardId, targetPlayerId);
+      console.log('[SOCKET] discardCard result:', JSON.stringify(result));
+      console.log('[SOCKET] Game phase after discard:', room.game.phase);
 
       if (result.success) {
         callback({ success: true, roundEnded: result.roundEnded, gameEnded: result.gameEnded });
