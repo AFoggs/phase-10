@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useDrop } from 'react-dnd';
 import PlayerHand from './PlayerHand';
 import Card, { MiniCard, ItemTypes } from './Card';
-import PhaseDisplay from './PhaseDisplay';
 import PhaseBuilder from './PhaseBuilder';
 import DrawDiscardPiles from './DrawDiscardPiles';
 import ScoreBoard from './ScoreBoard';
@@ -416,28 +415,44 @@ function GameBoard({
         </div>
       )}
 
-      {/* Header */}
-      <header className="flex justify-between items-center p-4 border-b border-white/10">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-accent-gold">Phase 10</h1>
-          <span className="text-sm text-gray-400">
+      {/* Header - responsive */}
+      <header className="flex flex-wrap justify-between items-center p-2 sm:p-4 border-b border-white/10 gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <h1 className="text-lg sm:text-xl font-bold text-accent-gold">Phase 10</h1>
+          <span className="text-xs sm:text-sm text-gray-400 hidden sm:inline">
             Room: {roomCode}
           </span>
-          <span className="text-sm text-gray-400">
-            Round {game?.roundNumber}
+          <span className="text-xs sm:text-sm text-gray-400">
+            R{game?.roundNumber}
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Compact Phase Info - Right side of header */}
+        <div className="flex items-center gap-2 sm:gap-4 order-3 sm:order-2 w-full sm:w-auto justify-center sm:justify-start mt-2 sm:mt-0">
+          <div className={`
+            flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm
+            ${hasCompletedPhase ? 'bg-green-600/20 border border-green-500' : 'bg-accent-gold/20 border border-accent-gold'}
+          `}>
+            <span className={hasCompletedPhase ? 'text-green-400' : 'text-accent-gold'}>
+              Phase {currentPlayer?.currentPhase}
+            </span>
+            {hasCompletedPhase && <span className="text-green-400">✓</span>}
+          </div>
+          <div className="text-xs text-gray-400 hidden md:block max-w-[200px] truncate">
+            {myPhaseInfo?.name}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-4 order-2 sm:order-3">
           <button
             onClick={() => setShowScoreboard(!showScoreboard)}
-            className="btn-secondary text-sm py-2"
+            className="btn-secondary text-xs sm:text-sm py-1.5 sm:py-2 px-2 sm:px-4"
           >
             Scores
           </button>
           <button
             onClick={onLeaveRoom}
-            className="text-red-400 hover:text-red-300 text-sm"
+            className="text-red-400 hover:text-red-300 text-xs sm:text-sm"
           >
             Leave
           </button>
@@ -455,8 +470,8 @@ function GameBoard({
 
       {/* Main game area */}
       <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-auto">
-        {/* Left sidebar - Other players */}
-        <div className="lg:w-64 flex lg:flex-col gap-4 overflow-x-auto lg:overflow-y-auto">
+        {/* Left sidebar - Other players (horizontal scroll on mobile) */}
+        <div className="lg:w-56 flex lg:flex-col gap-2 sm:gap-4 overflow-x-auto lg:overflow-y-auto pb-2 lg:pb-0">
           {otherPlayers.map(player => (
             <OtherPlayerPanel
               key={player.id}
@@ -472,17 +487,53 @@ function GameBoard({
         </div>
 
         {/* Center - Game table */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-6">
-          {/* Current phase display */}
-          <PhaseDisplay
-            phaseNumber={currentPlayer?.currentPhase}
-            phaseInfo={myPhaseInfo}
-            completed={hasCompletedPhase}
-            laidDownPhase={currentPlayer?.laidDownPhase}
-            canHit={canPlay && hasCompletedPhase}
-            selectedCard={selectedCards[0]}
-            onHit={(groupIndex) => handleHit(playerId, selectedCards[0]?.id, groupIndex)}
-          />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-6">
+          {/* Phase Builder - center of the game area when not completed */}
+          {!hasCompletedPhase && myPhaseInfo && phaseBuilderGroups.length > 0 && (
+            <div className="w-full max-w-2xl px-2 sm:px-4">
+              <PhaseBuilder
+                phaseNumber={currentPlayer?.currentPhase}
+                phaseInfo={myPhaseInfo}
+                groups={phaseBuilderGroups}
+                onAddCard={addCardToPhaseBuilder}
+                onRemoveCard={removeCardFromPhaseBuilder}
+                onClearAll={clearPhaseBuilder}
+                onPhaseOut={handlePhaseOut}
+                disabled={!canPlay}
+              />
+            </div>
+          )}
+
+          {/* Completed phase - for hitting on self */}
+          {hasCompletedPhase && currentPlayer?.laidDownPhase && (
+            <div className="w-full max-w-xl px-2 sm:px-4">
+              <div className="bg-green-900/20 rounded-lg p-3 border border-green-500/30">
+                <div className="text-center text-green-400 text-sm mb-2">
+                  Your Completed Phase {currentPlayer?.currentPhase}
+                </div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {currentPlayer.laidDownPhase.map((group, groupIdx) => (
+                    <HitDropZone
+                      key={groupIdx}
+                      playerId={playerId}
+                      groupIndex={groupIdx}
+                      group={group}
+                      phaseInfo={myPhaseInfo}
+                      canHitEnabled={canPlay && hasCompletedPhase}
+                      checkCanHit={(card, grp, idx) => {
+                        const groupType = myPhaseInfo.requirements[idx];
+                        if (!groupType) return false;
+                        const result = canHitOnPhase(card, grp, groupType);
+                        return result.canHit;
+                      }}
+                      selectedCard={selectedCards[0]}
+                      onHit={handleHit}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Draw/Discard piles */}
           <DrawDiscardPiles
@@ -494,22 +545,22 @@ function GameBoard({
             onDiscard={handleDiscard}
           />
 
-          {/* Turn indicator */}
+          {/* Turn indicator - compact on mobile */}
           <div className={`
-            px-6 py-3 rounded-lg text-center
+            px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-center text-sm sm:text-base
             ${isMyTurn ? 'bg-accent-gold/20 text-accent-gold current-turn' : 'bg-white/5 text-gray-400'}
           `}>
             {isMyTurn ? (
               <span>
-                {turnPhase === 'draw' ? 'Draw a card to start your turn' :
-                  hasCompletedPhase ? 'Play cards on phases or discard to end turn' :
-                    'Lay down your phase or discard to end turn'}
+                {turnPhase === 'draw' ? 'Draw a card to start' :
+                  hasCompletedPhase ? 'Hit on phases or discard' :
+                    'Build your phase or discard'}
               </span>
             ) : (
               <span>
                 {cpuThinking ? (
                   <span className="thinking-dots">
-                    {game?.players?.find(p => p.id === game?.currentPlayerId)?.name} is thinking
+                    {game?.players?.find(p => p.id === game?.currentPlayerId)?.name} thinking
                     <span>.</span><span>.</span><span>.</span>
                   </span>
                 ) : (
@@ -520,53 +571,38 @@ function GameBoard({
           </div>
         </div>
 
-        {/* Right sidebar - Actions */}
-        <div className="lg:w-64 flex flex-col gap-4">
+        {/* Right sidebar - Actions (hidden on mobile, show as overlay) */}
+        <div className="hidden lg:flex lg:w-48 flex-col gap-4">
           {/* Selected card actions */}
           {canPlay && selectedCards.length === 1 && (
-            <div className="bg-white/5 rounded-lg p-4">
-              <p className="text-sm text-gray-400 mb-3">Selected card:</p>
-              <div className="flex justify-center mb-4">
+            <div className="bg-white/5 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-2">Selected:</p>
+              <div className="flex justify-center mb-3">
                 <Card card={selectedCards[0]} small />
               </div>
 
               <button
                 onClick={() => handleDiscard(selectedCards[0].id)}
-                className="btn-secondary w-full"
+                className="btn-secondary w-full text-sm py-1.5"
               >
                 Discard
               </button>
             </div>
           )}
 
-          {/* Drag hint */}
+          {/* Drag hints */}
           {canPlay && (
-            <div className="text-sm text-gray-400 text-center space-y-1">
-              <p>Drag cards to discard pile</p>
-              {!hasCompletedPhase && <p>or to phase builder above</p>}
+            <div className="text-xs text-gray-500 text-center space-y-1">
+              <p>Drag cards to discard</p>
+              {!hasCompletedPhase && <p>or to phase builder</p>}
+              {hasCompletedPhase && <p>or hit on phases</p>}
             </div>
           )}
         </div>
       </div>
 
-      {/* Phase Builder - persistent area above hand */}
-      {canPlay && !hasCompletedPhase && myPhaseInfo && phaseBuilderGroups.length > 0 && (
-        <div className="px-4 pb-2">
-          <PhaseBuilder
-            phaseNumber={currentPlayer?.currentPhase}
-            phaseInfo={myPhaseInfo}
-            groups={phaseBuilderGroups}
-            onAddCard={addCardToPhaseBuilder}
-            onRemoveCard={removeCardFromPhaseBuilder}
-            onClearAll={clearPhaseBuilder}
-            onPhaseOut={handlePhaseOut}
-            disabled={!canPlay}
-          />
-        </div>
-      )}
-
-      {/* Player's hand */}
-      <div className="border-t border-white/10 p-4 bg-white/5">
+      {/* Player's hand - responsive padding */}
+      <div className="border-t border-white/10 p-2 sm:p-4 bg-white/5">
         <PlayerHand
           cards={availableHandCards}
           selectedCards={selectedCards}
@@ -630,7 +666,7 @@ function GameBoard({
   );
 }
 
-// Other player panel component
+// Other player panel component - compact for mobile
 function OtherPlayerPanel({
   player,
   isCurrentTurn,
@@ -654,45 +690,52 @@ function OtherPlayerPanel({
   return (
     <div
       className={`
-        bg-white/5 rounded-lg p-4 min-w-[200px] lg:min-w-0
+        bg-white/5 rounded-lg p-2 sm:p-3 min-w-[150px] sm:min-w-[180px] lg:min-w-0 flex-shrink-0
         ${isCurrentTurn ? 'ring-2 ring-accent-gold' : ''}
       `}
     >
-      {/* Player info */}
-      <div className="flex items-center gap-3 mb-3">
+      {/* Player info - compact */}
+      <div className="flex items-center gap-2 mb-2">
         <div
           className={`
-            w-10 h-10 rounded-full flex items-center justify-center font-bold
+            w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold
             ${player.isComputer ? 'bg-purple-600' : 'bg-blue-600'}
           `}
         >
-          {player.isComputer ? 'CPU' : player.name[0].toUpperCase()}
+          {player.isComputer ? '🤖' : player.name[0].toUpperCase()}
         </div>
-        <div>
-          <div className="font-medium">{player.name}</div>
-          <div className="text-xs text-gray-400">
-            Phase {player.currentPhase}
-            {player.completedPhaseThisRound && ' ✓'}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm truncate">{player.name}</div>
+          <div className="text-xs text-gray-400 flex items-center gap-1">
+            <span>P{player.currentPhase}</span>
+            {player.completedPhaseThisRound && <span className="text-green-400">✓</span>}
+            <span className="text-gray-500">• {player.handCount}🃏</span>
           </div>
         </div>
+        {/* Score badge inline */}
+        <span className="text-xs bg-white/10 px-1.5 py-0.5 rounded text-gray-300">
+          {player.score}
+        </span>
       </div>
 
       {/* CPU thinking indicator */}
       {cpuThinking && (
-        <div className="text-sm text-accent-gold mb-2 thinking-dots">
+        <div className="text-xs text-accent-gold mb-1 thinking-dots">
           Thinking<span>.</span><span>.</span><span>.</span>
         </div>
       )}
 
-      {/* Cards in hand */}
-      <div className="text-sm text-gray-400 mb-2">
-        {player.handCount} cards in hand
-      </div>
+      {/* Skip indicator */}
+      {player.skipCount > 0 && (
+        <div className="text-xs text-red-400 mb-1">
+          ⏭️ Skipped x{player.skipCount}
+        </div>
+      )}
 
       {/* Laid down phase - with hit drop zones */}
       {player.laidDownPhase && (
-        <div className="mt-3 space-y-2">
-          <div className="text-xs text-gray-400">Completed Phase:</div>
+        <div className="mt-1 space-y-1">
+          <div className="text-xs text-gray-500">Completed:</div>
           {player.laidDownPhase.map((group, groupIdx) => (
             <HitDropZone
               key={groupIdx}
@@ -708,11 +751,6 @@ function OtherPlayerPanel({
           ))}
         </div>
       )}
-
-      {/* Score */}
-      <div className="mt-3 text-right">
-        <span className="score-badge">{player.score} pts</span>
-      </div>
     </div>
   );
 }

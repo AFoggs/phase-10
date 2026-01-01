@@ -35,25 +35,27 @@ function PhaseBuilder({
   return (
     <div className={`
       bg-gradient-to-b from-white/10 to-white/5
-      rounded-xl p-4 border border-white/20
+      rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20
       transition-all duration-300
       ${phaseValidation.valid ? 'ring-2 ring-green-500 shadow-lg shadow-green-500/20' : ''}
     `}>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold text-accent-gold">
+      {/* Header - responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3 sm:mb-4">
+        <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3">
+          <h3 className="text-base sm:text-lg font-bold text-accent-gold">
             Phase {phaseNumber}
           </h3>
-          <span className="text-sm text-gray-400">{phaseInfo.name}</span>
+          <span className="text-xs sm:text-sm text-gray-400 truncate max-w-[150px] sm:max-w-none">
+            {phaseInfo.name}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-2">
           {hasAnyCards && (
             <button
               onClick={onClearAll}
               disabled={disabled}
-              className="text-sm px-3 py-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+              className="text-xs sm:text-sm px-2 sm:px-3 py-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
             >
               Clear
             </button>
@@ -64,7 +66,7 @@ function PhaseBuilder({
             onClick={onPhaseOut}
             disabled={!phaseValidation.valid || disabled}
             className={`
-              px-6 py-2 rounded-lg font-bold transition-all duration-300
+              px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base font-bold transition-all duration-300
               ${phaseValidation.valid
                 ? 'bg-green-500 hover:bg-green-400 text-white animate-pulse shadow-lg shadow-green-500/50'
                 : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'}
@@ -75,8 +77,8 @@ function PhaseBuilder({
         </div>
       </div>
 
-      {/* Drop zones for each requirement */}
-      <div className="flex flex-wrap gap-4 justify-center">
+      {/* Drop zones for each requirement - responsive gap */}
+      <div className="flex flex-wrap gap-2 sm:gap-4 justify-center">
         {phaseInfo.requirements.map((req, groupIdx) => (
           <BuilderDropZone
             key={groupIdx}
@@ -93,14 +95,14 @@ function PhaseBuilder({
 
       {/* Hint text */}
       {!hasAnyCards && !disabled && (
-        <p className="text-center text-gray-500 text-sm mt-3">
+        <p className="text-center text-gray-500 text-xs sm:text-sm mt-2 sm:mt-3">
           Drag cards here to build your phase
         </p>
       )}
 
       {/* Validation message */}
       {hasAnyCards && !phaseValidation.valid && (
-        <p className="text-center text-amber-400 text-sm mt-3">
+        <p className="text-center text-amber-400 text-xs sm:text-sm mt-2 sm:mt-3">
           {phaseValidation.reason}
         </p>
       )}
@@ -108,7 +110,7 @@ function PhaseBuilder({
   );
 }
 
-// Drop zone for a single group in the builder
+// Drop zone for a single group in the builder - mobile-optimized
 function BuilderDropZone({
   groupIndex,
   requirement,
@@ -138,7 +140,7 @@ function BuilderDropZone({
     <div
       ref={drop}
       className={`
-        p-3 rounded-lg border-2 transition-all min-w-[120px]
+        p-2 sm:p-3 rounded-lg border-2 transition-all min-w-[100px] sm:min-w-[120px]
         ${isOver && canDrop ? 'border-accent-gold bg-accent-gold/20 scale-105' :
           isEmpty ? 'border-dashed border-white/30 bg-white/5' :
             isValid ? 'border-green-500 bg-green-500/10' :
@@ -146,59 +148,66 @@ function BuilderDropZone({
       `}
     >
       {/* Header */}
-      <div className="text-center mb-2">
-        <span className={`text-xs font-medium ${isValid ? 'text-green-400' : 'text-gray-400'}`}>
+      <div className="text-center mb-1 sm:mb-2">
+        <span className={`text-[10px] sm:text-xs font-medium ${isValid ? 'text-green-400' : 'text-gray-400'}`}>
           {requirement.label}
         </span>
-        <span className="text-xs text-gray-500 ml-1">
+        <span className="text-[10px] sm:text-xs text-gray-500 ml-1">
           ({cards.length}/{requirement.count})
         </span>
       </div>
 
       {/* Cards */}
-      <div className="flex flex-wrap gap-1 justify-center min-h-[60px] items-center">
+      <div className="flex flex-wrap gap-0.5 sm:gap-1 justify-center min-h-[50px] sm:min-h-[60px] items-center">
         {cards.map(card => (
           <div key={card.id} className="relative group">
             <Card card={card} small draggable={!disabled} />
             <button
               onClick={() => onRemoveCard(card.id)}
               disabled={disabled}
-              className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-xs
-                         opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center
-                         hover:bg-red-500"
+              className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-[10px]
+                         opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center
+                         hover:bg-red-500 touch-manipulation"
+              style={{ opacity: cards.length > 0 ? undefined : 0 }}
             >
-              x
+              ×
             </button>
           </div>
         ))}
 
-        {/* Placeholder slots for remaining cards needed */}
+        {/* Placeholder slots for remaining cards needed - compact on mobile */}
         {neededCards > 0 && (
-          <div className="flex gap-1">
-            {Array.from({ length: Math.min(neededCards, 3) }).map((_, i) => (
+          <div className="flex gap-0.5 sm:gap-1">
+            {Array.from({ length: Math.min(neededCards, 2) }).map((_, i) => (
               <div
                 key={`placeholder-${i}`}
                 className={`
-                  w-10 h-14 border border-dashed rounded flex items-center justify-center text-xs
+                  w-8 h-11 sm:w-10 sm:h-14 border border-dashed rounded flex items-center justify-center text-[10px] sm:text-xs
                   ${isOver && canDrop ? 'border-accent-gold text-accent-gold' : 'border-white/20 text-white/20'}
                 `}
               >
                 +
               </div>
             ))}
-            {neededCards > 3 && (
-              <span className="text-xs text-gray-500 self-center">+{neededCards - 3}</span>
+            {neededCards > 2 && (
+              <span className="text-[10px] sm:text-xs text-gray-500 self-center">+{neededCards - 2}</span>
             )}
           </div>
         )}
       </div>
 
-      {/* Status indicator */}
+      {/* Status indicator - hidden on mobile unless valid */}
       {!isEmpty && (
-        <div className="text-center mt-1">
-          <span className={`text-xs ${isValid ? 'text-green-400' : 'text-amber-400'}`}>
-            {isValid ? 'Valid!' : validation?.reason || 'Keep going...'}
+        <div className="text-center mt-1 hidden sm:block">
+          <span className={`text-[10px] sm:text-xs ${isValid ? 'text-green-400' : 'text-amber-400'}`}>
+            {isValid ? '✓' : validation?.reason || '...'}
           </span>
+        </div>
+      )}
+      {/* Compact valid indicator on mobile */}
+      {!isEmpty && isValid && (
+        <div className="text-center mt-1 sm:hidden">
+          <span className="text-green-400 text-[10px]">✓</span>
         </div>
       )}
     </div>

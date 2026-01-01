@@ -29,7 +29,7 @@ function DrawDiscardPiles({
   }), [canDiscard, onDiscard]);
 
   return (
-    <div className="flex items-center gap-8">
+    <div className="flex items-center gap-4 sm:gap-8">
       {/* Draw pile */}
       <div className="relative">
         <button
@@ -38,12 +38,12 @@ function DrawDiscardPiles({
           className={`
             relative
             transition-transform duration-200
-            ${canDraw ? 'hover:scale-105 cursor-pointer' : 'cursor-not-allowed opacity-75'}
+            ${canDraw ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-not-allowed opacity-75'}
           `}
         >
-          {/* Stack effect */}
-          <div className="absolute top-1 left-1 w-20 h-28 bg-indigo-900 rounded-lg" />
-          <div className="absolute top-0.5 left-0.5 w-20 h-28 bg-indigo-800 rounded-lg" />
+          {/* Stack effect - smaller on mobile */}
+          <div className="absolute top-1 left-1 w-16 h-22 sm:w-20 sm:h-28 bg-indigo-900 rounded-lg" />
+          <div className="absolute top-0.5 left-0.5 w-16 h-22 sm:w-20 sm:h-28 bg-indigo-800 rounded-lg" />
 
           {/* Top card (face down) */}
           <Card
@@ -52,14 +52,14 @@ function DrawDiscardPiles({
           />
 
           {/* Card count badge */}
-          <div className="absolute -bottom-2 -right-2 bg-gray-700 text-white text-xs px-2 py-1 rounded-full">
+          <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-gray-700 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
             {drawPileCount}
           </div>
         </button>
 
-        <div className="text-center mt-2 text-sm text-gray-400">
-          Draw Pile
-          {canDraw && <span className="block text-accent-gold text-xs">Click to draw</span>}
+        <div className="text-center mt-1 sm:mt-2 text-xs sm:text-sm text-gray-400">
+          Draw
+          {canDraw && <span className="block text-accent-gold text-[10px] sm:text-xs">Tap to draw</span>}
         </div>
       </div>
 
@@ -79,7 +79,7 @@ function DrawDiscardPiles({
               disabled={!canDraw || topDiscard.type === 'skip'}
               className={`
                 transition-transform duration-200
-                ${canDraw && topDiscard.type !== 'skip' ? 'hover:scale-105 cursor-pointer' : ''}
+                ${canDraw && topDiscard.type !== 'skip' ? 'hover:scale-105 active:scale-95 cursor-pointer' : ''}
                 ${!canDraw && !canDiscard ? 'cursor-not-allowed opacity-75' : ''}
               `}
             >
@@ -90,7 +90,7 @@ function DrawDiscardPiles({
               {/* Skip card indicator */}
               {topDiscard.type === 'skip' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
-                  <div className="text-xs text-white bg-red-600/80 px-2 py-1 rounded font-bold">
+                  <div className="text-[10px] sm:text-xs text-white bg-red-600/80 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                     Can't Take
                   </div>
                 </div>
@@ -98,33 +98,33 @@ function DrawDiscardPiles({
             </button>
           ) : (
             <div className={`
-              w-20 h-28 border-2 border-dashed rounded-lg flex items-center justify-center text-sm
+              w-16 h-22 sm:w-20 sm:h-28 border-2 border-dashed rounded-lg flex items-center justify-center text-xs sm:text-sm
               ${isOver && canDrop ? 'border-accent-gold text-accent-gold bg-accent-gold/10' : 'border-white/30 text-gray-500'}
             `}>
-              {isOver && canDrop ? 'Drop here!' : 'Empty'}
+              {isOver && canDrop ? 'Drop!' : 'Empty'}
             </div>
           )}
 
           {/* Drop indicator overlay */}
           {isOver && canDrop && topDiscard && (
             <div className="absolute inset-0 flex items-center justify-center bg-accent-gold/30 rounded-lg pointer-events-none">
-              <span className="text-white font-bold text-sm bg-accent-gold px-2 py-1 rounded">
+              <span className="text-white font-bold text-xs sm:text-sm bg-accent-gold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                 Discard
               </span>
             </div>
           )}
         </div>
 
-        <div className="text-center mt-2 text-sm text-gray-400">
-          Discard Pile
+        <div className="text-center mt-1 sm:mt-2 text-xs sm:text-sm text-gray-400">
+          Discard
           {canDraw && topDiscard && topDiscard.type !== 'skip' && (
-            <span className="block text-accent-gold text-xs">Click to take</span>
+            <span className="block text-accent-gold text-[10px] sm:text-xs">Tap to take</span>
           )}
           {canDiscard && (
-            <span className="block text-green-400 text-xs">Drop card to discard</span>
+            <span className="block text-green-400 text-[10px] sm:text-xs">Drop to discard</span>
           )}
           {topDiscard?.type === 'skip' && (
-            <span className="block text-red-400 text-xs">Skip cards can't be taken</span>
+            <span className="block text-red-400 text-[10px] sm:text-xs">Can't take skip</span>
           )}
         </div>
       </div>

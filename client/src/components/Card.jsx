@@ -27,8 +27,8 @@ function Card({
     })
   }), [card, index, draggable, disabled, faceDown]);
 
-  const baseSize = small ? 'w-12 h-16' : 'w-16 h-24 sm:w-20 sm:h-28';
-  const fontSize = small ? 'text-lg' : 'text-2xl sm:text-3xl';
+  const baseSize = small ? 'w-10 h-14 sm:w-12 sm:h-16' : 'w-14 h-20 sm:w-20 sm:h-28';
+  const fontSize = small ? 'text-base sm:text-lg' : 'text-xl sm:text-3xl';
 
   // Card back design
   if (faceDown) {
@@ -104,13 +104,13 @@ function Card({
         </>
       )}
 
-      {/* Corner numbers */}
+      {/* Corner numbers - hidden on small mobile screens */}
       {card.type === 'number' && !small && (
         <>
-          <span className="absolute top-1 left-2 text-xs font-bold opacity-75">
+          <span className="absolute top-0.5 left-1 sm:top-1 sm:left-2 text-[8px] sm:text-xs font-bold opacity-75 hidden sm:block">
             {displayValue}
           </span>
-          <span className="absolute bottom-1 right-2 text-xs font-bold opacity-75 rotate-180">
+          <span className="absolute bottom-0.5 right-1 sm:bottom-1 sm:right-2 text-[8px] sm:text-xs font-bold opacity-75 rotate-180 hidden sm:block">
             {displayValue}
           </span>
         </>
@@ -121,7 +121,7 @@ function Card({
 
 // Card placeholder for empty slots
 export function CardPlaceholder({ small = false, label = '' }) {
-  const size = small ? 'w-12 h-16' : 'w-16 h-24 sm:w-20 sm:h-28';
+  const size = small ? 'w-10 h-14 sm:w-12 sm:h-16' : 'w-14 h-20 sm:w-20 sm:h-28';
 
   return (
     <div
@@ -130,8 +130,8 @@ export function CardPlaceholder({ small = false, label = '' }) {
         border-2 border-dashed border-white/30
         rounded-lg
         flex items-center justify-center
-        text-white/30 text-xs text-center
-        p-1
+        text-white/30 text-[10px] sm:text-xs text-center
+        p-0.5 sm:p-1
       `}
     >
       {label}

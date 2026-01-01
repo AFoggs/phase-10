@@ -70,21 +70,22 @@ function PlayerHand({
   const isSelected = (card) => selectedCards.some(c => c.id === card.id);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      {/* Sort toggle */}
+    <div className="flex flex-col items-center gap-1 sm:gap-2">
+      {/* Sort toggle - compact on mobile */}
       {showSort && cards.length > 0 && (
         <button
           onClick={cycleSortMode}
-          className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-sm text-gray-300 hover:text-white hover:bg-white/20 transition-colors"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-white/10 rounded-full text-xs sm:text-sm text-gray-300 hover:text-white hover:bg-white/20 transition-colors active:scale-95"
         >
           <span className="text-accent-gold">{getSortLabel()}</span>
-          <span className="text-xs text-gray-500">Click to change</span>
+          <span className="text-[10px] sm:text-xs text-gray-500 hidden sm:inline">Click to change</span>
+          <span className="text-gray-500 sm:hidden">↻</span>
         </button>
       )}
 
-      {/* Cards */}
+      {/* Cards - more compact on mobile */}
       <div
-        className="flex flex-wrap justify-center gap-1 sm:gap-2 p-2"
+        className="flex flex-wrap justify-center gap-0.5 sm:gap-2 p-1 sm:p-2"
         style={{ maxWidth: '100%' }}
       >
         {displayCards.map((card, index) => {
@@ -101,7 +102,7 @@ function PlayerHand({
               }}
             >
               {isHighlighted && (
-                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs bg-green-500 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap z-20 shadow-lg">
+                <div className="absolute -top-4 sm:-top-5 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs bg-green-500 text-white px-1.5 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap z-20 shadow-lg">
                   NEW
                 </div>
               )}
@@ -119,17 +120,16 @@ function PlayerHand({
         })}
       </div>
 
-      {/* Selection info */}
+      {/* Selection info - compact on mobile */}
       {canSelect && selectedCards.length > 0 && (
-        <div className="text-sm text-accent-gold">
-          {selectedCards.length} card{selectedCards.length !== 1 ? 's' : ''} selected
-          {maxSelect !== Infinity && ` (max ${maxSelect})`}
+        <div className="text-xs sm:text-sm text-accent-gold">
+          {selectedCards.length} selected
         </div>
       )}
 
       {/* Empty hand message */}
       {cards.length === 0 && (
-        <div className="text-gray-400 text-center py-8">
+        <div className="text-gray-400 text-center py-4 sm:py-8 text-sm">
           No cards in hand
         </div>
       )}
