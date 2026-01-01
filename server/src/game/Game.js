@@ -119,10 +119,20 @@ class Game {
     // Initialize discard pile (may return a skip card that should skip first player)
     const firstDiscardResult = this.deck.initializeDiscardPile();
 
-    // If first discard is a skip, skip the first player (increment skip count)
+    // Track if first player was skipped (for socket handler to emit notification)
+    this.firstPlayerSkipped = null;
+
+    // If first discard is a skip, skip the first player
     if (firstDiscardResult && firstDiscardResult.isSkip) {
       const firstPlayer = this.getCurrentPlayer();
-      firstPlayer.skipCount++;
+      this.firstPlayerSkipped = {
+        playerId: firstPlayer.id,
+        playerName: firstPlayer.name
+      };
+      // Advance to next player (the skip is consumed)
+      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+      const nextPlayer = this.getCurrentPlayer();
+      nextPlayer.hasDrawnThisTurn = false;
     }
 
     // For Chaos mode, assign random phases
@@ -567,10 +577,20 @@ class Game {
     this.currentPlayerIndex = Math.floor(Math.random() * this.players.length);
     this.turnPhase = 'draw';
 
-    // If first discard is a skip, skip the first player (increment skip count)
+    // Track if first player was skipped (for socket handler to emit notification)
+    this.firstPlayerSkipped = null;
+
+    // If first discard is a skip, skip the first player
     if (firstDiscardResult && firstDiscardResult.isSkip) {
       const firstPlayer = this.getCurrentPlayer();
-      firstPlayer.skipCount++;
+      this.firstPlayerSkipped = {
+        playerId: firstPlayer.id,
+        playerName: firstPlayer.name
+      };
+      // Advance to next player (the skip is consumed)
+      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+      const nextPlayer = this.getCurrentPlayer();
+      nextPlayer.hasDrawnThisTurn = false;
     }
 
     this.lastAction = {

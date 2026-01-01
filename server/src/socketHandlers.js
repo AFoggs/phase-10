@@ -181,6 +181,18 @@ function setupSocketHandlers(io) {
 
         callback({ success: true });
 
+        // If first card was a skip, emit skip notification
+        if (room.game.firstPlayerSkipped) {
+          setTimeout(() => {
+            io.to(roomCode.toUpperCase()).emit('playerSkipped', {
+              skippedPlayerId: room.game.firstPlayerSkipped.playerId,
+              skippedPlayerName: room.game.firstPlayerSkipped.playerName,
+              reason: 'First card was a Skip!'
+            });
+            room.game.firstPlayerSkipped = null;
+          }, 500); // Small delay so players see the game board first
+        }
+
         // Check if first player is CPU
         checkAndExecuteCPUTurn(io, roomCode);
       } else {
@@ -353,6 +365,18 @@ function setupSocketHandlers(io) {
         io.to(roomCode.toUpperCase()).emit('newRoundStarted', {
           roundNumber: room.game.roundNumber
         });
+
+        // If first card was a skip, emit skip notification
+        if (room.game.firstPlayerSkipped) {
+          setTimeout(() => {
+            io.to(roomCode.toUpperCase()).emit('playerSkipped', {
+              skippedPlayerId: room.game.firstPlayerSkipped.playerId,
+              skippedPlayerName: room.game.firstPlayerSkipped.playerName,
+              reason: 'First card was a Skip!'
+            });
+            room.game.firstPlayerSkipped = null;
+          }, 500); // Small delay so players see the game board first
+        }
 
         // Check if current player is CPU
         checkAndExecuteCPUTurn(io, roomCode);
