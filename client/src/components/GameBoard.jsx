@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import PlayerHand from './PlayerHand';
 import Card, { MiniCard } from './Card';
 import PhaseDisplay from './PhaseDisplay';
-import PhaseValidation from './PhaseValidation';
+import PhaseBuilder from './PhaseBuilder';
 import DrawDiscardPiles from './DrawDiscardPiles';
 import ScoreBoard from './ScoreBoard';
 import { getPhaseInfo, GAME_MODES, getPhasesForMode } from '../utils/phaseDefinitions';
@@ -27,7 +27,6 @@ function GameBoard({
 }) {
   const [selectedCards, setSelectedCards] = useState([]);
   const [error, setError] = useState(null);
-  const [showPhaseBuilder, setShowPhaseBuilder] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [showPhaseSelector, setShowPhaseSelector] = useState(false);
   const [showSkipTargetSelector, setShowSkipTargetSelector] = useState(false);
@@ -35,6 +34,9 @@ function GameBoard({
   const [notification, setNotification] = useState(null);
   const [lastDrawnCardId, setLastDrawnCardId] = useState(null);
   const [sortMode, setSortMode] = useState('color');
+
+  // Phase builder state - persistent groups for drag-and-drop phase building
+  const [phaseBuilderGroups, setPhaseBuilderGroups] = useState([]);
 
   // Sound effects
   const { playSound } = useGameSounds();
@@ -70,6 +72,74 @@ function GameBoard({
   // My current phase info
   const myPhaseInfo = getPhaseInfo(currentPlayer?.currentPhase);
 
+  // Initialize phase builder groups when phase info changes
+  React.useEffect(() => {
+    if (myPhaseInfo && !hasCompletedPhase) {
+      setPhaseBuilderGroups(myPhaseInfo.requirements.map(() => []));
+    } else {
+      setPhaseBuilderGroups([]);
+    }
+  }, [myPhaseInfo, hasCompletedPhase, game?.roundNumber]);
+
+  // Cards currently in the phase builder
+  const cardsInBuilder = useMemo(() => {
+    const cardIds = new Set();
+    phaseBuilderGroups.forEach(group => {
+      group.forEach(card => cardIds.add(card.id));
+    });
+    return cardIds;
+  }, [phaseBuilderGroups]);
+
+  // Cards available for hand display (excluding those in builder)
+  const availableHandCards = useMemo(() => {
+    return (currentPlayer?.hand || []).filter(c => !cardsInBuilder.has(c.id));
+  }, [currentPlayer?.hand, cardsInBuilder]);
+
+  // Phase builder functions
+  const addCardToPhaseBuilder = useCallback((card, groupIndex) => {
+    setPhaseBuilderGroups(prev => prev.map((group, idx) => {
+      if (idx === groupIndex) {
+        // Add to this group if not already there
+        if (!group.find(c => c.id === card.id)) {
+          return [...group, card];
+        }
+        return group;
+      }
+      // Remove from other groups (in case card was dragged between groups)
+      return group.filter(c => c.id !== card.id);
+    }));
+    // Clear selection when card is added to builder
+    setSelectedCards([]);
+  }, []);
+
+  const removeCardFromPhaseBuilder = useCallback((cardId, groupIndex) => {
+    setPhaseBuilderGroups(prev => prev.map((group, idx) => {
+      if (idx === groupIndex) {
+        return group.filter(c => c.id !== cardId);
+      }
+      return group;
+    }));
+  }, []);
+
+  const clearPhaseBuilder = useCallback(() => {
+    if (myPhaseInfo) {
+      setPhaseBuilderGroups(myPhaseInfo.requirements.map(() => []));
+    }
+  }, [myPhaseInfo]);
+
+  // Handle phase out (submit the phase from builder)
+  const handlePhaseOut = useCallback(async () => {
+    try {
+      setError(null);
+      await onLayDownPhase(phaseBuilderGroups);
+      playSound('phaseComplete');
+      setPhaseBuilderGroups([]);
+      setSelectedCards([]);
+    } catch (err) {
+      setError(err);
+    }
+  }, [onLayDownPhase, phaseBuilderGroups, playSound]);
+
   // Handle drawing a card
   const handleDraw = useCallback(async (source) => {
     try {
@@ -87,19 +157,6 @@ function GameBoard({
     }
   }, [onDrawCard, playSound]);
 
-  // Handle laying down phase
-  const handleLayPhase = useCallback(async (cardGroups) => {
-    try {
-      setError(null);
-      await onLayDownPhase(cardGroups);
-      playSound('phaseComplete');
-      setShowPhaseBuilder(false);
-      setSelectedCards([]);
-    } catch (err) {
-      setError(err);
-    }
-  }, [onLayDownPhase, playSound]);
-
   // Handle hitting
   const handleHit = useCallback(async (targetPlayerId, cardId, groupIndex) => {
     try {
@@ -111,11 +168,19 @@ function GameBoard({
     }
   }, [onHitCard]);
 
-  // Handle discarding
-  const handleDiscard = useCallback(async (cardId, targetPlayerId = null) => {
+  // Handle discarding (works with card ID or card object for drag-and-drop)
+  const handleDiscard = useCallback(async (cardOrId, targetPlayerId = null) => {
+    // Support both card object (from drag-and-drop) and card ID
+    const card = typeof cardOrId === 'object' ? cardOrId : currentPlayer?.hand?.find(c => c.id === cardOrId);
+    const cardId = typeof cardOrId === 'object' ? cardOrId.id : cardOrId;
+
+    if (!card) {
+      setError('Card not found');
+      return;
+    }
+
     // Check if it's a skip card and needs target selection
-    const card = currentPlayer?.hand?.find(c => c.id === cardId);
-    if (card && card.type === 'skip' && !targetPlayerId) {
+    if (card.type === 'skip' && !targetPlayerId) {
       // Show skip target selector
       setPendingSkipCard(card);
       setShowSkipTargetSelector(true);
@@ -421,8 +486,10 @@ function GameBoard({
           <DrawDiscardPiles
             deck={game?.deck}
             canDraw={canDraw}
+            canDiscard={canPlay}
             onDrawFromDeck={() => handleDraw('deck')}
             onDrawFromDiscard={() => handleDraw('discard')}
+            onDiscard={handleDiscard}
           />
 
           {/* Turn indicator */}
@@ -453,16 +520,6 @@ function GameBoard({
 
         {/* Right sidebar - Actions */}
         <div className="lg:w-64 flex flex-col gap-4">
-          {/* Phase builder button */}
-          {canPlay && !hasCompletedPhase && (
-            <button
-              onClick={() => setShowPhaseBuilder(true)}
-              className="btn-primary"
-            >
-              Build Phase {currentPlayer?.currentPhase}
-            </button>
-          )}
-
           {/* Selected card actions */}
           {canPlay && selectedCards.length === 1 && (
             <div className="bg-white/5 rounded-lg p-4">
@@ -480,19 +537,36 @@ function GameBoard({
             </div>
           )}
 
-          {/* Quick discard when no selection */}
-          {canPlay && selectedCards.length === 0 && (
-            <p className="text-sm text-gray-400 text-center">
-              Select a card to discard
-            </p>
+          {/* Drag hint */}
+          {canPlay && (
+            <div className="text-sm text-gray-400 text-center space-y-1">
+              <p>Drag cards to discard pile</p>
+              {!hasCompletedPhase && <p>or to phase builder above</p>}
+            </div>
           )}
         </div>
       </div>
 
+      {/* Phase Builder - persistent area above hand */}
+      {canPlay && !hasCompletedPhase && myPhaseInfo && phaseBuilderGroups.length > 0 && (
+        <div className="px-4 pb-2">
+          <PhaseBuilder
+            phaseNumber={currentPlayer?.currentPhase}
+            phaseInfo={myPhaseInfo}
+            groups={phaseBuilderGroups}
+            onAddCard={addCardToPhaseBuilder}
+            onRemoveCard={removeCardFromPhaseBuilder}
+            onClearAll={clearPhaseBuilder}
+            onPhaseOut={handlePhaseOut}
+            disabled={!canPlay}
+          />
+        </div>
+      )}
+
       {/* Player's hand */}
       <div className="border-t border-white/10 p-4 bg-white/5">
         <PlayerHand
-          cards={currentPlayer?.hand || []}
+          cards={availableHandCards}
           selectedCards={selectedCards}
           onCardSelect={setSelectedCards}
           disabled={!canPlay}
@@ -502,18 +576,6 @@ function GameBoard({
           onSortModeChange={setSortMode}
         />
       </div>
-
-      {/* Phase builder modal */}
-      {showPhaseBuilder && (
-        <PhaseValidation
-          phaseNumber={currentPlayer?.currentPhase}
-          phaseInfo={myPhaseInfo}
-          hand={currentPlayer?.hand || []}
-          sortMode={sortMode}
-          onSubmit={handleLayPhase}
-          onCancel={() => setShowPhaseBuilder(false)}
-        />
-      )}
 
       {/* Skip target selector modal */}
       {showSkipTargetSelector && pendingSkipCard && (
