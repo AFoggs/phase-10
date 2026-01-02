@@ -203,9 +203,9 @@ function AudioPlayer() {
     }
   }, []);
 
-  // Audio player UI
+  // Audio player UI - hidden on mobile (screens < 640px)
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-50 hidden sm:block">
       {/* Toggle button */}
       <button
         onClick={togglePlay}

@@ -1,5 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { GAME_MODES } from '../utils/phaseDefinitions';
+
+// Random name generator for players who don't enter a name
+const PLAYER_ADJECTIVES = [
+  'Swift', 'Lucky', 'Bold', 'Brave', 'Cool', 'Epic', 'Grand', 'Happy',
+  'Jolly', 'Keen', 'Mighty', 'Noble', 'Quick', 'Royal', 'Super', 'Wild'
+];
+
+const PLAYER_NOUNS = [
+  'Ace', 'Bear', 'Card', 'Duke', 'Eagle', 'Fox', 'Gem', 'Hawk',
+  'King', 'Lion', 'Owl', 'Panda', 'Queen', 'Star', 'Tiger', 'Wolf'
+];
+
+const generateRandomName = () => {
+  const adj = PLAYER_ADJECTIVES[Math.floor(Math.random() * PLAYER_ADJECTIVES.length)];
+  const noun = PLAYER_NOUNS[Math.floor(Math.random() * PLAYER_NOUNS.length)];
+  return `${adj}${noun}`;
+};
 
 // Phase count options
 const PHASE_COUNTS = [
@@ -47,6 +64,25 @@ function Lobby({
   const isHost = room && room.hostId === playerId;
   const canStart = room && room.players.length >= 2;
 
+  // Get name to use (generate random if empty)
+  const getPlayerName = useCallback(() => {
+    return playerName.trim() || generateRandomName();
+  }, [playerName]);
+
+  // Handle create room with random name fallback
+  const handleCreate = useCallback(() => {
+    const name = getPlayerName();
+    setPlayerName(name);
+    onCreateRoom(name, settings);
+  }, [getPlayerName, onCreateRoom, settings]);
+
+  // Handle join room with random name fallback
+  const handleJoin = useCallback(() => {
+    const name = getPlayerName();
+    setPlayerName(name);
+    onJoinRoom(name, joinCode);
+  }, [getPlayerName, onJoinRoom, joinCode]);
+
   // Initial screen - choose to create or join
   if (!roomCode) {
     return (
@@ -68,7 +104,7 @@ function Lobby({
               type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Enter your name"
+              placeholder="Enter name (or leave blank for random)"
               className="input-field"
               maxLength={20}
             />
@@ -79,7 +115,7 @@ function Lobby({
               {/* Create room button */}
               <button
                 onClick={() => setShowCreate(true)}
-                disabled={!connected || !playerName.trim()}
+                disabled={!connected}
                 className="btn-primary w-full"
               >
                 Create New Game
@@ -105,8 +141,8 @@ function Lobby({
                   maxLength={6}
                 />
                 <button
-                  onClick={() => onJoinRoom(playerName, joinCode)}
-                  disabled={!connected || !playerName.trim() || joinCode.length !== 6}
+                  onClick={handleJoin}
+                  disabled={!connected || joinCode.length !== 6}
                   className="btn-primary"
                 >
                   Join
@@ -206,8 +242,8 @@ function Lobby({
                   Back
                 </button>
                 <button
-                  onClick={() => onCreateRoom(playerName, settings)}
-                  disabled={!connected || !playerName.trim()}
+                  onClick={handleCreate}
+                  disabled={!connected}
                   className="btn-primary flex-1"
                 >
                   Create Room

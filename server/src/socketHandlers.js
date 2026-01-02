@@ -40,11 +40,15 @@ function setupSocketHandlers(io) {
     socket.on('joinRoom', (data, callback) => {
       const { roomCode, playerName } = data;
 
+      console.log(`[JOIN] Attempting to join room: "${roomCode}" with player: "${playerName}"`);
+      console.log(`[JOIN] Available rooms:`, roomManager.getAllRooms().map(r => r.code));
+
       const player = new Player(null, playerName);
       socketToPlayer.set(socket.id, player.id);
       playerToSocket.set(player.id, socket.id);
 
       const result = roomManager.joinRoom(roomCode, player);
+      console.log(`[JOIN] Result:`, result);
 
       if (result.success) {
         socket.join(roomCode.toUpperCase());
@@ -60,6 +64,7 @@ function setupSocketHandlers(io) {
           room: result.room
         });
       } else {
+        console.log(`[JOIN] Failed: ${result.error}`);
         callback({ success: false, error: result.error });
       }
     });
