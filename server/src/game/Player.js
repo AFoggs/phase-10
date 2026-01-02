@@ -80,7 +80,8 @@ class Player {
 
   // Add a card to the laid down phase (hitting)
   // For runs, insert in sorted order; for sets/colors, append to end
-  hitOnPhase(groupIndex, card, groupType = null) {
+  // position: 'start' or 'end' - used for wilds on runs to choose which end
+  hitOnPhase(groupIndex, card, groupType = null, position = null) {
     if (!this.laidDownPhase || !this.laidDownPhase[groupIndex]) {
       return false;
     }
@@ -98,7 +99,7 @@ class Player {
     );
 
     if (isRunType && card.type === 'number') {
-      // For runs, insert in the correct sorted position by value
+      // For number cards on runs, insert in the correct sorted position by value
       // Find the effective value for each card (wilds take context-dependent values)
       const getEffectiveValue = (c, idx, arr) => {
         if (c.type === 'wild') {
@@ -128,6 +129,14 @@ class Player {
 
       // Insert at the correct position
       group.splice(insertIndex, 0, card);
+    } else if (isRunType && card.type === 'wild') {
+      // For wilds on runs, use the position parameter to determine placement
+      if (position === 'start') {
+        group.unshift(card);
+      } else {
+        // Default to end
+        group.push(card);
+      }
     } else {
       // For sets and color groups, just append
       group.push(card);

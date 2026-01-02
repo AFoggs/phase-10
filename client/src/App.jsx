@@ -276,11 +276,11 @@ function App() {
     });
   }, [socket, roomCode]);
 
-  const handleHitCard = useCallback((targetPlayerId, cardId, groupIndex) => {
+  const handleHitCard = useCallback((targetPlayerId, cardId, groupIndex, position = null) => {
     if (!socket || !roomCode) return Promise.reject('Not connected');
 
     return new Promise((resolve, reject) => {
-      socket.emit('hitCard', { roomCode, targetPlayerId, cardId, groupIndex }, (response) => {
+      socket.emit('hitCard', { roomCode, targetPlayerId, cardId, groupIndex, position }, (response) => {
         if (response.success) {
           resolve(response);
         } else {

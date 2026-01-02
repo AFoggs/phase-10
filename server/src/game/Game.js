@@ -313,8 +313,9 @@ class Game {
   }
 
   // Hit on another player's phase
-  hitCard(playerId, targetPlayerId, cardId, groupIndex) {
-    console.log('[HIT] Starting hit:', { playerId, targetPlayerId, cardId, groupIndex });
+  // position is optional - 'start' or 'end' for wilds on runs
+  hitCard(playerId, targetPlayerId, cardId, groupIndex, position = null) {
+    console.log('[HIT] Starting hit:', { playerId, targetPlayerId, cardId, groupIndex, position });
 
     if (this.phase !== 'playing') {
       return { success: false, error: 'Game not in playing phase' };
@@ -365,9 +366,10 @@ class Game {
     }
 
     // Execute the hit - pass groupType so runs can be sorted correctly
+    // For wilds on runs, position determines if it goes at start or end
     const removedCard = currentPlayer.removeCard(cardId);
     console.log('[HIT] Removed card:', removedCard?.id, 'Hand count after:', currentPlayer.hand.length);
-    targetPlayer.hitOnPhase(groupIndex, card, groupType);
+    targetPlayer.hitOnPhase(groupIndex, card, groupType, position);
 
     this.lastAction = {
       type: 'hit',
@@ -376,6 +378,14 @@ class Game {
       cardId,
       groupIndex
     };
+
+    // Check if player went out by hitting their last card
+    if (currentPlayer.hand.length === 0) {
+      console.log('[HIT] Hand is empty after hit! Calling endRound');
+      const endResult = this.endRound(playerId);
+      console.log('[HIT] endRound result:', endResult);
+      return { success: true, ...endResult };
+    }
 
     return { success: true };
   }
@@ -733,14 +743,21 @@ class Game {
               type: 'hit',
               card: hit.card,
               targetPlayerId: hit.targetPlayerId,
-              groupIndex: hit.groupIndex
+              groupIndex: hit.groupIndex,
+              roundEnded: hitResult.roundEnded,
+              gameEnded: hitResult.gameEnded
             });
+
+            // If CPU went out by hitting their last card, round is over
+            if (hitResult.roundEnded) {
+              return { success: true, actions };
+            }
           }
         }
       }
     }
 
-    // 4. Discard
+    // 4. Discard (only if round hasn't ended from hitting)
     const discardSelection = cpu.selectCardToDiscard(this.players);
     if (discardSelection && discardSelection.card) {
       const discardResult = this.discardCard(cpuId, discardSelection.card.id, discardSelection.skipTargetId);

@@ -161,10 +161,11 @@ function GameBoard({
   }, [onDrawCard, playSound]);
 
   // Handle hitting
-  const handleHit = useCallback(async (targetPlayerId, cardId, groupIndex) => {
+  // position is optional - 'start' or 'end' for wilds on runs
+  const handleHit = useCallback(async (targetPlayerId, cardId, groupIndex, position = null) => {
     try {
       setError(null);
-      await onHitCard(targetPlayerId, cardId, groupIndex);
+      await onHitCard(targetPlayerId, cardId, groupIndex, position);
       setSelectedCards([]);
     } catch (err) {
       setError(err);
@@ -844,10 +845,27 @@ function HitDropZone({
   selectedCard,
   onHit
 }) {
+  // Check if this is a run type
+  const groupType = phaseInfo?.requirements?.[groupIndex];
+  const isRunType = groupType && (
+    groupType.type === 'run' ||
+    groupType.type === 'colorRun' ||
+    groupType.type === 'oddRun' ||
+    groupType.type === 'evenRun' ||
+    groupType.type === 'oddColorRun' ||
+    groupType.type === 'evenColorRun'
+  );
+
+  // Check if selected card or dragged card is a wild
+  const selectedIsWild = selectedCard?.type === 'wild';
+
+  // For non-wild cards or non-runs, use simple drop zone
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: ItemTypes.CARD,
     canDrop: (item) => {
       if (!canHitEnabled || !phaseInfo) return false;
+      // For wilds on runs, we'll handle in the position-specific drop zones
+      if (isRunType && item.card.type === 'wild') return false;
       return checkCanHit(item.card, group, groupIndex);
     },
     drop: (item) => {
@@ -857,37 +875,113 @@ function HitDropZone({
       isOver: monitor.isOver(),
       canDrop: monitor.canDrop()
     })
-  }), [canHitEnabled, phaseInfo, checkCanHit, group, groupIndex, playerId, onHit]);
+  }), [canHitEnabled, phaseInfo, checkCanHit, group, groupIndex, playerId, onHit, isRunType]);
+
+  // Drop zone for start position (wild on runs)
+  const [{ isOver: isOverStart, canDrop: canDropStart }, dropStart] = useDrop(() => ({
+    accept: ItemTypes.CARD,
+    canDrop: (item) => {
+      if (!canHitEnabled || !phaseInfo || !isRunType) return false;
+      if (item.card.type !== 'wild') return false;
+      return checkCanHit(item.card, group, groupIndex);
+    },
+    drop: (item) => {
+      onHit(playerId, item.card.id, groupIndex, 'start');
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop()
+    })
+  }), [canHitEnabled, phaseInfo, checkCanHit, group, groupIndex, playerId, onHit, isRunType]);
+
+  // Drop zone for end position (wild on runs)
+  const [{ isOver: isOverEnd, canDrop: canDropEnd }, dropEnd] = useDrop(() => ({
+    accept: ItemTypes.CARD,
+    canDrop: (item) => {
+      if (!canHitEnabled || !phaseInfo || !isRunType) return false;
+      if (item.card.type !== 'wild') return false;
+      return checkCanHit(item.card, group, groupIndex);
+    },
+    drop: (item) => {
+      onHit(playerId, item.card.id, groupIndex, 'end');
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop()
+    })
+  }), [canHitEnabled, phaseInfo, checkCanHit, group, groupIndex, playerId, onHit, isRunType]);
 
   const canHitWithSelected = selectedCard && checkCanHit(selectedCard, group, groupIndex);
+  const showWildPositions = isRunType && (selectedIsWild || canDropStart || canDropEnd);
 
   return (
-    <div
-      ref={drop}
-      className={`
-        flex flex-wrap gap-1 p-1 rounded transition-all
-        ${isOver && canDrop ? 'bg-green-500/30 ring-2 ring-green-400' : ''}
-        ${canDrop && !isOver ? 'bg-green-500/10' : ''}
-      `}
-    >
-      {group.map(card => (
-        <MiniCard key={card.id} card={card} />
-      ))}
-      {/* Hit button - show if selected card can hit, or drop indicator */}
-      {(canHitWithSelected || (isOver && canDrop)) && (
-        <button
-          onClick={() => selectedCard && onHit(playerId, selectedCard.id, groupIndex)}
-          disabled={!canHitWithSelected}
+    <div className="flex items-center gap-1">
+      {/* Start position drop zone for wilds on runs */}
+      {showWildPositions && (
+        <div
+          ref={dropStart}
+          onClick={() => selectedIsWild && canHitWithSelected && onHit(playerId, selectedCard.id, groupIndex, 'start')}
           className={`
-            w-6 h-8 border border-dashed rounded flex items-center justify-center text-xs transition-all
-            ${isOver && canDrop
-              ? 'border-green-400 text-green-400 bg-green-500/20 scale-110'
-              : 'border-accent-gold text-accent-gold hover:bg-accent-gold/10'}
+            w-6 h-8 border border-dashed rounded flex items-center justify-center text-xs cursor-pointer transition-all
+            ${isOverStart && canDropStart
+              ? 'border-blue-400 text-blue-400 bg-blue-500/30 scale-110'
+              : canHitWithSelected && selectedIsWild
+                ? 'border-blue-400 text-blue-400 hover:bg-blue-500/20'
+                : 'border-gray-500 text-gray-500'}
           `}
-          title="Hit here"
+          title="Place wild at start (lower value)"
         >
-          +
-        </button>
+          ←
+        </div>
+      )}
+
+      {/* Main group with cards */}
+      <div
+        ref={drop}
+        className={`
+          flex flex-wrap gap-1 p-1 rounded transition-all
+          ${isOver && canDrop ? 'bg-green-500/30 ring-2 ring-green-400' : ''}
+          ${canDrop && !isOver ? 'bg-green-500/10' : ''}
+        `}
+      >
+        {group.map(card => (
+          <MiniCard key={card.id} card={card} />
+        ))}
+        {/* Hit button for non-wild cards */}
+        {(canHitWithSelected && !selectedIsWild) || (isOver && canDrop) ? (
+          <button
+            onClick={() => selectedCard && !selectedIsWild && onHit(playerId, selectedCard.id, groupIndex)}
+            disabled={!canHitWithSelected || selectedIsWild}
+            className={`
+              w-6 h-8 border border-dashed rounded flex items-center justify-center text-xs transition-all
+              ${isOver && canDrop
+                ? 'border-green-400 text-green-400 bg-green-500/20 scale-110'
+                : 'border-accent-gold text-accent-gold hover:bg-accent-gold/10'}
+            `}
+            title="Hit here"
+          >
+            +
+          </button>
+        ) : null}
+      </div>
+
+      {/* End position drop zone for wilds on runs */}
+      {showWildPositions && (
+        <div
+          ref={dropEnd}
+          onClick={() => selectedIsWild && canHitWithSelected && onHit(playerId, selectedCard.id, groupIndex, 'end')}
+          className={`
+            w-6 h-8 border border-dashed rounded flex items-center justify-center text-xs cursor-pointer transition-all
+            ${isOverEnd && canDropEnd
+              ? 'border-purple-400 text-purple-400 bg-purple-500/30 scale-110'
+              : canHitWithSelected && selectedIsWild
+                ? 'border-purple-400 text-purple-400 hover:bg-purple-500/20'
+                : 'border-gray-500 text-gray-500'}
+          `}
+          title="Place wild at end (higher value)"
+        >
+          →
+        </div>
       )}
     </div>
   );

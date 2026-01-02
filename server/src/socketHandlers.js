@@ -285,7 +285,7 @@ function setupSocketHandlers(io) {
 
     // Hit on another player's phase
     socket.on('hitCard', (data, callback) => {
-      const { roomCode, targetPlayerId, cardId, groupIndex } = data;
+      const { roomCode, targetPlayerId, cardId, groupIndex, position } = data;
       const playerId = socketToPlayer.get(socket.id);
 
       const room = roomManager.getRoom(roomCode);
@@ -299,10 +299,10 @@ function setupSocketHandlers(io) {
       const targetPlayer = room.game.players.find(p => p.id === targetPlayerId);
       const card = hittingPlayer?.getCard(cardId);
 
-      const result = room.game.hitCard(playerId, targetPlayerId, cardId, groupIndex);
+      const result = room.game.hitCard(playerId, targetPlayerId, cardId, groupIndex, position);
 
       if (result.success) {
-        callback({ success: true });
+        callback({ success: true, roundEnded: result.roundEnded, gameEnded: result.gameEnded });
 
         // Emit hit notification
         io.to(roomCode.toUpperCase()).emit('playerHit', {
@@ -314,6 +314,20 @@ function setupSocketHandlers(io) {
         });
 
         broadcastGameState(io, roomCode);
+
+        // Handle round/game end from hitting out
+        if (result.roundEnded && !result.gameEnded) {
+          io.to(roomCode.toUpperCase()).emit('roundEnded', {
+            roundWinnerId: playerId
+          });
+        }
+
+        if (result.gameEnded) {
+          io.to(roomCode.toUpperCase()).emit('gameEnded', {
+            winnerId: room.game.winner
+          });
+          room.status = 'finished';
+        }
       } else {
         callback({ success: false, error: result.error });
       }
