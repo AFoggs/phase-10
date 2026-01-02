@@ -1,11 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import Lobby from './components/Lobby';
 import GameBoard from './components/GameBoard';
 import AudioPlayer from './components/AudioPlayer';
 import './App.css';
+
+// Check if device supports touch
+const isTouchDevice = () => {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
 
 // Determine server URL: use environment variable, or auto-detect based on current hostname
 // This allows connecting from other devices on the network
@@ -359,8 +365,17 @@ function App() {
     }
   }, [error]);
 
+  // Select backend based on device type
+  // Touch backend with no delay for immediate drag response on mobile
+  const dndBackend = useMemo(() => isTouchDevice() ? TouchBackend : HTML5Backend, []);
+  const dndOptions = useMemo(() => isTouchDevice() ? {
+    enableMouseEvents: true,
+    delayTouchStart: 0,  // No delay - drag starts immediately on touch
+    delayMouseStart: 0,
+  } : undefined, []);
+
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={dndBackend} options={dndOptions}>
       <div className="min-h-screen bg-game-bg text-white">
         {/* Audio Player */}
         <AudioPlayer />

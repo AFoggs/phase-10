@@ -74,6 +74,7 @@ function Card({
         ${isDragging ? 'opacity-50 scale-95' : 'opacity-100'}
         ${onClick && !disabled ? 'cursor-pointer hover:scale-105 hover:-translate-y-1' : ''}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+        ${draggable && !disabled ? 'draggable-card' : ''}
         card-container
       `}
       style={{

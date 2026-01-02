@@ -1,5 +1,14 @@
 /* Additional App-specific styles */
 
+/* Touch device drag support */
+/* Prevent scroll/zoom interference when dragging cards on touch devices */
+.draggable-card {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* Card container styles */
 .card-container {
   perspective: 1000px;
