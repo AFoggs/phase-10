@@ -529,7 +529,11 @@ function GameBoard({
             {drawNotification.source === 'deck' ? '🃏' : '♻️'}
           </span>
           <span className="text-sm font-medium">
-            {drawNotification.playerName} drew from {drawNotification.source === 'deck' ? 'deck' : 'discard'}
+            {drawNotification.source === 'deck'
+              ? `${drawNotification.playerName} drew from deck`
+              : drawNotification.card
+                ? `${drawNotification.playerName} picked up ${drawNotification.card.type === 'wild' ? 'Wild' : drawNotification.card.type === 'skip' ? 'Skip' : `${drawNotification.card.color} ${drawNotification.card.value}`}`
+                : `${drawNotification.playerName} drew from discard`}
           </span>
         </div>
       )}

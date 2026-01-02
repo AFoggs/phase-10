@@ -129,8 +129,8 @@ function App() {
       setTimeout(() => setPhaseOutNotification(null), 3000);
     });
 
-    socket.on('playerDrew', ({ playerId, playerName, source }) => {
-      setDrawNotification({ playerId, playerName, source });
+    socket.on('playerDrew', ({ playerId, playerName, source, card }) => {
+      setDrawNotification({ playerId, playerName, source, card });
       // Auto-clear after 2 seconds
       setTimeout(() => setDrawNotification(null), 2000);
     });

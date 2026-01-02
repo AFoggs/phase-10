@@ -212,14 +212,18 @@ function setupSocketHandlers(io) {
       }
 
       const player = room.game.players.find(p => p.id === playerId);
+      // For discard draws, get the card info BEFORE drawing (for notification)
+      const topDiscardCard = source === 'discard' ? room.game.deck.getTopDiscard() : null;
       const result = room.game.drawCard(playerId, source);
 
       if (result.success) {
         // Emit draw notification to all players
+        // Include the card for discard draws so everyone can see what was picked up
         io.to(roomCode.toUpperCase()).emit('playerDrew', {
           playerId: playerId,
           playerName: player?.name,
-          source: source
+          source: source,
+          card: source === 'discard' ? topDiscardCard : null
         });
 
         // Check if deck was exhausted (triggers round end)
@@ -564,7 +568,9 @@ async function checkAndExecuteCPUTurn(io, roomCode) {
           io.to(roomCode.toUpperCase()).emit('playerDrew', {
             playerId: currentPlayer.id,
             playerName: currentPlayer.name,
-            source: action.source
+            source: action.source,
+            // For discard draws, action.card is the card that was drawn
+            card: action.source === 'discard' ? action.card : null
           });
         }
 

@@ -714,11 +714,24 @@ class Game {
 
     // 1. Draw
     const topDiscard = this.deck.getTopDiscard();
-    const drawSource = cpu.selectCardToDraw(topDiscard);
-    const drawResult = this.drawCard(cpuId, drawSource);
+    let drawSource = cpu.selectCardToDraw(topDiscard);
+    let drawResult = this.drawCard(cpuId, drawSource);
+
+    // If discard draw failed (e.g., empty pile), fall back to deck
+    if (!drawResult.success && drawSource === 'discard') {
+      drawSource = 'deck';
+      drawResult = this.drawCard(cpuId, drawSource);
+    }
+
     if (drawResult.skipped) {
       return { success: true, actions: [{ type: 'skipped' }], skipped: true };
     }
+
+    if (!drawResult.success) {
+      console.error('[CPU] Draw failed:', drawResult.error);
+      return { success: false, error: drawResult.error };
+    }
+
     actions.push({ type: 'draw', source: drawSource, card: drawResult.card });
 
     // 2. Try to lay down phase

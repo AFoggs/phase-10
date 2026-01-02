@@ -21,9 +21,9 @@ class CPUPlayer extends Player {
       return 'deck';
     }
 
-    // Skip cards are generally not useful unless we need to skip someone
+    // Skip cards CANNOT be picked up from discard pile (Phase 10 rules)
     if (topDiscard.type === 'skip') {
-      return this.difficulty === 'hard' ? 'discard' : 'deck';
+      return 'deck';
     }
 
     // Wild cards are always valuable
