@@ -16,16 +16,18 @@ function Card({
   small = false,
   faceDown = false,
   disabled = false,
+  fromBuilder = false, // Whether this card is in the phase builder
+  builderGroupIndex = null, // Which group in the builder this card is in
   style = {}
 }) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.CARD,
-    item: { card, index },
+    item: { card, index, fromBuilder, builderGroupIndex },
     canDrag: draggable && !disabled && !faceDown,
     collect: (monitor) => ({
       isDragging: monitor.isDragging()
     })
-  }), [card, index, draggable, disabled, faceDown]);
+  }), [card, index, draggable, disabled, faceDown, fromBuilder, builderGroupIndex]);
 
   const baseSize = small ? 'w-10 h-14 sm:w-12 sm:h-16' : 'w-14 h-20 sm:w-20 sm:h-28';
   const fontSize = small ? 'text-base sm:text-lg' : 'text-xl sm:text-3xl';

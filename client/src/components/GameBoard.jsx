@@ -132,6 +132,23 @@ function GameBoard({
     setSelectedCards([]);
   }, []);
 
+  // Add card at a specific position (for runs)
+  const addCardToPhaseBuilderAtPosition = useCallback((card, groupIndex, position) => {
+    setPhaseBuilderGroups(prev => prev.map((group, idx) => {
+      if (idx === groupIndex) {
+        // Remove card if it exists in this group already
+        const filtered = group.filter(c => c.id !== card.id);
+        // Insert at the specified position
+        const newGroup = [...filtered];
+        newGroup.splice(position, 0, card);
+        return newGroup;
+      }
+      // Remove from other groups
+      return group.filter(c => c.id !== card.id);
+    }));
+    setSelectedCards([]);
+  }, []);
+
   const removeCardFromPhaseBuilder = useCallback((cardId, groupIndex) => {
     setPhaseBuilderGroups(prev => prev.map((group, idx) => {
       if (idx === groupIndex) {
@@ -140,6 +157,13 @@ function GameBoard({
       return group;
     }));
   }, []);
+
+  // Return a card from the builder back to hand (just removes it from builder)
+  const returnCardToHand = useCallback((card, fromGroupIndex) => {
+    if (fromGroupIndex !== null && fromGroupIndex !== undefined) {
+      removeCardFromPhaseBuilder(card.id, fromGroupIndex);
+    }
+  }, [removeCardFromPhaseBuilder]);
 
   const clearPhaseBuilder = useCallback(() => {
     if (myPhaseInfo) {
@@ -610,10 +634,12 @@ function GameBoard({
                 phaseInfo={myPhaseInfo}
                 groups={phaseBuilderGroups}
                 onAddCard={addCardToPhaseBuilder}
+                onAddCardAtPosition={addCardToPhaseBuilderAtPosition}
                 onRemoveCard={removeCardFromPhaseBuilder}
                 onClearAll={clearPhaseBuilder}
                 onPhaseOut={handlePhaseOut}
-                disabled={!canPlay}
+                canPhaseOut={canPlay}
+                disabled={false}
               />
             </div>
           )}
@@ -715,19 +741,22 @@ function GameBoard({
         </div>
       </div>
 
-      {/* Player's hand - responsive padding */}
-      <div className="border-t border-white/10 p-2 sm:p-4 bg-white/5">
+      {/* Player's hand - responsive padding with drop zone for returning cards */}
+      <HandDropZone
+        onReturnCard={returnCardToHand}
+        hasBuilder={!hasCompletedPhase && myPhaseInfo && phaseBuilderGroups.length > 0}
+      >
         <PlayerHand
           cards={availableHandCards}
           selectedCards={selectedCards}
           onCardSelect={setSelectedCards}
-          disabled={!canPlay}
-          canSelect={canPlay}
+          disabled={false}
+          canSelect={true}
           maxSelect={1}
           highlightCardId={lastDrawnCardId}
           onSortModeChange={setSortMode}
         />
-      </div>
+      </HandDropZone>
 
       {/* Skip target selector modal */}
       {showSkipTargetSelector && pendingSkipCard && (
@@ -1043,6 +1072,42 @@ function HitDropZone({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Drop zone wrapper for the player's hand - accepts cards dragged from phase builder
+function HandDropZone({ children, onReturnCard, hasBuilder }) {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ItemTypes.CARD,
+    canDrop: (item) => item.fromBuilder === true,
+    drop: (item) => {
+      if (item.fromBuilder && onReturnCard) {
+        onReturnCard(item.card, item.builderGroupIndex);
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop()
+    })
+  }), [onReturnCard]);
+
+  return (
+    <div
+      ref={drop}
+      className={`
+        border-t border-white/10 p-2 sm:p-4 bg-white/5 transition-all
+        ${isOver && canDrop ? 'bg-blue-500/20 ring-2 ring-blue-400' : ''}
+        ${canDrop && !isOver ? 'ring-1 ring-dashed ring-blue-400/50' : ''}
+      `}
+    >
+      {children}
+      {/* Hint when dragging from builder */}
+      {canDrop && (
+        <div className="text-center text-blue-400 text-xs mt-2 animate-pulse">
+          {isOver ? 'Drop to return to hand' : 'Drag here to return card to hand'}
+        </div>
+      )}
     </div>
   );
 }

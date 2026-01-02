@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { useDrop } from 'react-dnd';
-import Card, { ItemTypes, CardPlaceholder } from './Card';
+import Card, { ItemTypes } from './Card';
 import { validateRequirement, validatePhase } from '../utils/phaseValidator';
 
 function PhaseBuilder({
@@ -8,10 +8,12 @@ function PhaseBuilder({
   phaseInfo,
   groups,
   onAddCard,
+  onAddCardAtPosition, // New: for inserting at specific position in runs
   onRemoveCard,
   onClearAll,
   onPhaseOut,
-  disabled = false
+  canPhaseOut = true, // Whether phase out button should be enabled (your turn + play phase)
+  disabled = false // Whether all interaction is disabled
 }) {
   // Validate each group (allowing extra cards that would be valid hits)
   const groupValidations = useMemo(() =>
@@ -31,6 +33,16 @@ function PhaseBuilder({
   }, [groups, phaseNumber]);
 
   const hasAnyCards = groups.some(g => g.length > 0);
+
+  // Check if a requirement is a run type
+  const isRunType = (req) => {
+    return req.type === 'run' ||
+      req.type === 'colorRun' ||
+      req.type === 'oddRun' ||
+      req.type === 'evenRun' ||
+      req.type === 'oddColorRun' ||
+      req.type === 'evenColorRun';
+  };
 
   return (
     <div className={`
@@ -64,10 +76,10 @@ function PhaseBuilder({
           {/* Phase Out button - prominent when valid */}
           <button
             onClick={onPhaseOut}
-            disabled={!phaseValidation.valid || disabled}
+            disabled={!phaseValidation.valid || !canPhaseOut || disabled}
             className={`
               px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base font-bold transition-all duration-300
-              ${phaseValidation.valid
+              ${phaseValidation.valid && canPhaseOut
                 ? 'bg-green-500 hover:bg-green-400 text-white animate-pulse shadow-lg shadow-green-500/50'
                 : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'}
             `}
@@ -87,7 +99,9 @@ function PhaseBuilder({
             cards={groups[groupIdx]}
             validation={groupValidations[groupIdx]}
             onDropCard={(card) => onAddCard(card, groupIdx)}
+            onDropCardAtPosition={onAddCardAtPosition ? (card, pos) => onAddCardAtPosition(card, groupIdx, pos) : null}
             onRemoveCard={(cardId) => onRemoveCard(cardId, groupIdx)}
+            isRunType={isRunType(req)}
             disabled={disabled}
           />
         ))}
@@ -97,6 +111,13 @@ function PhaseBuilder({
       {!hasAnyCards && !disabled && (
         <p className="text-center text-gray-500 text-xs sm:text-sm mt-2 sm:mt-3">
           Drag cards here to build your phase
+        </p>
+      )}
+
+      {/* Not your turn indicator */}
+      {!canPhaseOut && !disabled && hasAnyCards && phaseValidation.valid && (
+        <p className="text-center text-amber-400 text-xs sm:text-sm mt-2 sm:mt-3">
+          Wait for your turn to phase out
         </p>
       )}
 
@@ -117,17 +138,23 @@ function BuilderDropZone({
   cards,
   validation,
   onDropCard,
+  onDropCardAtPosition,
   onRemoveCard,
+  isRunType,
   disabled
 }) {
+  // Main drop zone (for general drops, adds to end)
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: ItemTypes.CARD,
     canDrop: () => !disabled,
-    drop: (item) => {
-      onDropCard(item.card);
+    drop: (item, monitor) => {
+      // Only handle drop if not dropped on a specific position zone
+      if (!monitor.didDrop()) {
+        onDropCard(item.card);
+      }
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOver: monitor.isOver({ shallow: true }),
       canDrop: monitor.canDrop()
     })
   }), [onDropCard, disabled]);
@@ -157,22 +184,43 @@ function BuilderDropZone({
         </span>
       </div>
 
-      {/* Cards */}
+      {/* Cards with insertion points for runs */}
       <div className="flex flex-wrap gap-0.5 sm:gap-1 justify-center min-h-[50px] sm:min-h-[60px] items-center">
-        {cards.map(card => (
-          <div key={card.id} className="relative group">
-            <Card card={card} small draggable={!disabled} />
-            <button
-              onClick={() => onRemoveCard(card.id)}
-              disabled={disabled}
-              className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-[10px]
-                         opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center
-                         hover:bg-red-500 touch-manipulation"
-              style={{ opacity: cards.length > 0 ? undefined : 0 }}
-            >
-              ×
-            </button>
-          </div>
+        {isRunType && cards.length > 0 && onDropCardAtPosition && (
+          <InsertionDropZone
+            position={0}
+            groupIndex={groupIndex}
+            onDrop={(card) => onDropCardAtPosition(card, 0)}
+            disabled={disabled}
+          />
+        )}
+
+        {cards.map((card, cardIdx) => (
+          <React.Fragment key={card.id}>
+            <div className="relative group">
+              <Card card={card} small draggable={!disabled} fromBuilder={true} builderGroupIndex={groupIndex} />
+              <button
+                onClick={() => onRemoveCard(card.id)}
+                disabled={disabled}
+                className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-white text-[10px]
+                           opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center
+                           hover:bg-red-500 touch-manipulation"
+                style={{ opacity: cards.length > 0 ? undefined : 0 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Insertion point after each card for runs */}
+            {isRunType && onDropCardAtPosition && (
+              <InsertionDropZone
+                position={cardIdx + 1}
+                groupIndex={groupIndex}
+                onDrop={(card) => onDropCardAtPosition(card, cardIdx + 1)}
+                disabled={disabled}
+              />
+            )}
+          </React.Fragment>
         ))}
 
         {/* Placeholder slots for remaining cards needed - compact on mobile */}
@@ -209,6 +257,38 @@ function BuilderDropZone({
         <div className="text-center mt-1 sm:hidden">
           <span className="text-green-400 text-[10px]">✓</span>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Small drop zone for inserting cards at specific positions in runs
+function InsertionDropZone({ position, groupIndex, onDrop, disabled }) {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ItemTypes.CARD,
+    canDrop: () => !disabled,
+    drop: (item) => {
+      onDrop(item.card);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop()
+    })
+  }), [onDrop, disabled, position, groupIndex]);
+
+  return (
+    <div
+      ref={drop}
+      className={`
+        w-2 sm:w-3 h-10 sm:h-12 flex items-center justify-center transition-all
+        ${isOver && canDrop
+          ? 'bg-accent-gold/50 w-6 sm:w-8 rounded'
+          : 'hover:bg-white/10'}
+      `}
+      title={`Insert at position ${position + 1}`}
+    >
+      {isOver && canDrop && (
+        <span className="text-accent-gold text-xs font-bold">+</span>
       )}
     </div>
   );
