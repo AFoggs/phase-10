@@ -77,11 +77,20 @@ class ProceduralMusicGenerator {
   }
 
   scheduler() {
+    // Guard against being called after stop() or when context is closed
+    if (!this.isPlaying || !this.audioContext) {
+      return;
+    }
+
     while (this.nextNoteTime < this.audioContext.currentTime + this.scheduleAheadTime) {
       this.scheduleNote(this.nextNoteTime);
       this.advanceNote();
     }
-    this.timerID = setTimeout(() => this.scheduler(), this.lookAhead);
+
+    // Only schedule next tick if still playing
+    if (this.isPlaying && this.audioContext) {
+      this.timerID = setTimeout(() => this.scheduler(), this.lookAhead);
+    }
   }
 
   scheduleNote(time) {
