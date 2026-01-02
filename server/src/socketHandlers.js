@@ -595,6 +595,22 @@ async function checkAndExecuteCPUTurn(io, roomCode) {
             playerName: currentPlayer.name,
             phaseNumber: currentPlayer.currentPhase
           });
+
+          // If CPU went out by phasing with all cards
+          if (action.roundEnded) {
+            broadcastGameState(io, roomCode);
+            io.to(roomCode.toUpperCase()).emit('roundEnded', {
+              roundWinnerId: currentPlayer.id
+            });
+
+            if (action.gameEnded) {
+              io.to(roomCode.toUpperCase()).emit('gameEnded', {
+                winnerId: room.game.winner
+              });
+              room.status = 'finished';
+            }
+            return; // Round ended, stop processing
+          }
         }
 
         // Emit hit notification for CPU hits

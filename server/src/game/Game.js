@@ -749,7 +749,17 @@ class Game {
       if (phaseGroups) {
         const phaseResult = this.layDownPhase(cpuId, phaseGroups);
         if (phaseResult.success) {
-          actions.push({ type: 'layPhase', groups: phaseGroups });
+          actions.push({
+            type: 'layPhase',
+            groups: phaseGroups,
+            roundEnded: phaseResult.roundEnded,
+            gameEnded: phaseResult.gameEnded
+          });
+
+          // If CPU went out by using all cards for phase, round is over
+          if (phaseResult.roundEnded) {
+            return { success: true, actions };
+          }
         }
       }
     }
