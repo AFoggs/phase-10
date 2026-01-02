@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import Card, { ItemTypes } from './Card';
 
@@ -12,6 +12,22 @@ function DrawDiscardPiles({
 }) {
   const drawPileCount = deck?.drawPileCount || 0;
   const topDiscard = deck?.topDiscard;
+
+  // Track deck count changes for animation
+  const [deckAnimation, setDeckAnimation] = useState(null);
+  const prevCountRef = useRef(drawPileCount);
+
+  useEffect(() => {
+    if (prevCountRef.current !== drawPileCount && prevCountRef.current !== 0) {
+      const diff = drawPileCount - prevCountRef.current;
+      if (diff !== 0) {
+        setDeckAnimation(diff < 0 ? 'draw' : 'add');
+        const timer = setTimeout(() => setDeckAnimation(null), 500);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevCountRef.current = drawPileCount;
+  }, [drawPileCount]);
 
   // Drop zone for discarding cards
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
@@ -51,8 +67,17 @@ function DrawDiscardPiles({
             faceDown
           />
 
-          {/* Card count badge */}
-          <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-gray-700 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+          {/* Card count badge - animated on change */}
+          <div className={`
+            absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2
+            text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full
+            font-bold transition-all duration-300
+            ${deckAnimation === 'draw'
+              ? 'bg-amber-500 scale-125 animate-pulse'
+              : deckAnimation === 'add'
+                ? 'bg-green-500 scale-125'
+                : 'bg-gray-700'}
+          `}>
             {drawPileCount}
           </div>
         </button>

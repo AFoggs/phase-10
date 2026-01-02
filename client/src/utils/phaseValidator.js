@@ -1,9 +1,16 @@
 import { PHASES } from './phaseDefinitions';
 
 // Validate a set (cards of the same number)
-export function validateSet(cards, requiredCount) {
-  if (cards.length !== requiredCount) {
-    return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+// allowExtras: if true, allows more cards than requiredCount as long as they match
+export function validateSet(cards, requiredCount, allowExtras = false) {
+  if (allowExtras) {
+    if (cards.length < requiredCount) {
+      return { valid: false, reason: `Need at least ${requiredCount} cards` };
+    }
+  } else {
+    if (cards.length !== requiredCount) {
+      return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+    }
   }
 
   const numberCards = cards.filter(c => c.type === 'number');
@@ -28,9 +35,16 @@ export function validateSet(cards, requiredCount) {
 }
 
 // Validate a run (consecutive numbers)
-export function validateRun(cards, requiredCount) {
-  if (cards.length !== requiredCount) {
-    return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+// allowExtras: if true, allows more cards than requiredCount if they extend the run
+export function validateRun(cards, requiredCount, allowExtras = false) {
+  if (allowExtras) {
+    if (cards.length < requiredCount) {
+      return { valid: false, reason: `Need at least ${requiredCount} cards` };
+    }
+  } else {
+    if (cards.length !== requiredCount) {
+      return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+    }
   }
 
   if (cards.some(c => c.type === 'skip')) {
@@ -54,15 +68,17 @@ export function validateRun(cards, requiredCount) {
 
   const minVal = values[0];
   const maxVal = values[values.length - 1];
+  const actualLength = cards.length;
 
-  // The range shouldn't exceed the required count
-  if (maxVal - minVal + 1 > requiredCount) {
+  // The range shouldn't exceed the actual card count
+  if (maxVal - minVal + 1 > actualLength) {
     return { valid: false, reason: 'Cards are too spread out to form a run' };
   }
 
-  // Check if we can form a valid run
-  for (let start = Math.max(1, minVal - wildCount); start <= Math.min(12 - requiredCount + 1, minVal); start++) {
-    const end = start + requiredCount - 1;
+  // Check if we can form a valid run with the wilds filling gaps
+  // For extra cards, the run just needs to be longer
+  for (let start = Math.max(1, minVal - wildCount); start <= Math.min(12 - actualLength + 1, minVal); start++) {
+    const end = start + actualLength - 1;
     if (end > 12) continue;
 
     let wildsNeeded = 0;
@@ -81,9 +97,15 @@ export function validateRun(cards, requiredCount) {
 }
 
 // Validate color group
-export function validateColor(cards, requiredCount) {
-  if (cards.length !== requiredCount) {
-    return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+export function validateColor(cards, requiredCount, allowExtras = false) {
+  if (allowExtras) {
+    if (cards.length < requiredCount) {
+      return { valid: false, reason: `Need at least ${requiredCount} cards` };
+    }
+  } else {
+    if (cards.length !== requiredCount) {
+      return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+    }
   }
 
   if (cards.some(c => c.type === 'skip')) {
@@ -108,11 +130,12 @@ export function validateColor(cards, requiredCount) {
 }
 
 // Validate color run
-export function validateColorRun(cards, requiredCount) {
-  const runResult = validateRun(cards, requiredCount);
+export function validateColorRun(cards, requiredCount, allowExtras = false) {
+  const runResult = validateRun(cards, requiredCount, allowExtras);
   if (!runResult.valid) return runResult;
 
-  const colorResult = validateColor(cards, requiredCount);
+  // For color validation, use the actual card count
+  const colorResult = validateColor(cards, cards.length, true);
   if (!colorResult.valid) {
     return { valid: false, reason: 'Color run must be all the same color' };
   }
@@ -121,9 +144,15 @@ export function validateColorRun(cards, requiredCount) {
 }
 
 // Validate odd run
-export function validateOddRun(cards, requiredCount) {
-  if (cards.length !== requiredCount) {
-    return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+export function validateOddRun(cards, requiredCount, allowExtras = false) {
+  if (allowExtras) {
+    if (cards.length < requiredCount) {
+      return { valid: false, reason: `Need at least ${requiredCount} cards` };
+    }
+  } else {
+    if (cards.length !== requiredCount) {
+      return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+    }
   }
 
   if (cards.some(c => c.type === 'skip')) {
@@ -151,13 +180,14 @@ export function validateOddRun(cards, requiredCount) {
   const indices = values.map(v => oddSequence.indexOf(v));
   const minIdx = Math.min(...indices);
   const maxIdx = Math.max(...indices);
+  const actualLength = cards.length;
 
-  if (maxIdx - minIdx + 1 > requiredCount) {
+  if (maxIdx - minIdx + 1 > actualLength) {
     return { valid: false, reason: 'Odd numbers are not consecutive' };
   }
 
   let wildsNeeded = 0;
-  for (let i = minIdx; i <= Math.min(minIdx + requiredCount - 1, 5); i++) {
+  for (let i = minIdx; i <= Math.min(minIdx + actualLength - 1, 5); i++) {
     if (!values.includes(oddSequence[i])) {
       wildsNeeded++;
     }
@@ -171,9 +201,15 @@ export function validateOddRun(cards, requiredCount) {
 }
 
 // Validate even run
-export function validateEvenRun(cards, requiredCount) {
-  if (cards.length !== requiredCount) {
-    return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+export function validateEvenRun(cards, requiredCount, allowExtras = false) {
+  if (allowExtras) {
+    if (cards.length < requiredCount) {
+      return { valid: false, reason: `Need at least ${requiredCount} cards` };
+    }
+  } else {
+    if (cards.length !== requiredCount) {
+      return { valid: false, reason: `Need exactly ${requiredCount} cards` };
+    }
   }
 
   if (cards.some(c => c.type === 'skip')) {
@@ -201,13 +237,14 @@ export function validateEvenRun(cards, requiredCount) {
   const indices = values.map(v => evenSequence.indexOf(v));
   const minIdx = Math.min(...indices);
   const maxIdx = Math.max(...indices);
+  const actualLength = cards.length;
 
-  if (maxIdx - minIdx + 1 > requiredCount) {
+  if (maxIdx - minIdx + 1 > actualLength) {
     return { valid: false, reason: 'Even numbers are not consecutive' };
   }
 
   let wildsNeeded = 0;
-  for (let i = minIdx; i <= Math.min(minIdx + requiredCount - 1, 5); i++) {
+  for (let i = minIdx; i <= Math.min(minIdx + actualLength - 1, 5); i++) {
     if (!values.includes(evenSequence[i])) {
       wildsNeeded++;
     }
@@ -221,11 +258,11 @@ export function validateEvenRun(cards, requiredCount) {
 }
 
 // Validate odd color run
-export function validateOddColorRun(cards, requiredCount) {
-  const oddResult = validateOddRun(cards, requiredCount);
+export function validateOddColorRun(cards, requiredCount, allowExtras = false) {
+  const oddResult = validateOddRun(cards, requiredCount, allowExtras);
   if (!oddResult.valid) return oddResult;
 
-  const colorResult = validateColor(cards, requiredCount);
+  const colorResult = validateColor(cards, cards.length, true);
   if (!colorResult.valid) {
     return { valid: false, reason: 'Odd run must be all the same color' };
   }
@@ -234,11 +271,11 @@ export function validateOddColorRun(cards, requiredCount) {
 }
 
 // Validate even color run
-export function validateEvenColorRun(cards, requiredCount) {
-  const evenResult = validateEvenRun(cards, requiredCount);
+export function validateEvenColorRun(cards, requiredCount, allowExtras = false) {
+  const evenResult = validateEvenRun(cards, requiredCount, allowExtras);
   if (!evenResult.valid) return evenResult;
 
-  const colorResult = validateColor(cards, requiredCount);
+  const colorResult = validateColor(cards, cards.length, true);
   if (!colorResult.valid) {
     return { valid: false, reason: 'Even run must be all the same color' };
   }
@@ -247,11 +284,11 @@ export function validateEvenColorRun(cards, requiredCount) {
 }
 
 // Validate color set
-export function validateColorSet(cards, requiredCount) {
-  const setResult = validateSet(cards, requiredCount);
+export function validateColorSet(cards, requiredCount, allowExtras = false) {
+  const setResult = validateSet(cards, requiredCount, allowExtras);
   if (!setResult.valid) return setResult;
 
-  const colorResult = validateColor(cards, requiredCount);
+  const colorResult = validateColor(cards, cards.length, true);
   if (!colorResult.valid) {
     return { valid: false, reason: 'Set must be all the same color' };
   }
@@ -260,33 +297,35 @@ export function validateColorSet(cards, requiredCount) {
 }
 
 // Validate a single requirement
-export function validateRequirement(cards, requirement) {
+// allowExtras: if true, allows more cards than minimum if they're valid extensions
+export function validateRequirement(cards, requirement, allowExtras = false) {
   switch (requirement.type) {
     case 'set':
-      return validateSet(cards, requirement.count);
+      return validateSet(cards, requirement.count, allowExtras);
     case 'run':
-      return validateRun(cards, requirement.count);
+      return validateRun(cards, requirement.count, allowExtras);
     case 'color':
-      return validateColor(cards, requirement.count);
+      return validateColor(cards, requirement.count, allowExtras);
     case 'colorRun':
-      return validateColorRun(cards, requirement.count);
+      return validateColorRun(cards, requirement.count, allowExtras);
     case 'oddRun':
-      return validateOddRun(cards, requirement.count);
+      return validateOddRun(cards, requirement.count, allowExtras);
     case 'evenRun':
-      return validateEvenRun(cards, requirement.count);
+      return validateEvenRun(cards, requirement.count, allowExtras);
     case 'oddColorRun':
-      return validateOddColorRun(cards, requirement.count);
+      return validateOddColorRun(cards, requirement.count, allowExtras);
     case 'evenColorRun':
-      return validateEvenColorRun(cards, requirement.count);
+      return validateEvenColorRun(cards, requirement.count, allowExtras);
     case 'colorSet':
-      return validateColorSet(cards, requirement.count);
+      return validateColorSet(cards, requirement.count, allowExtras);
     default:
       return { valid: false, reason: `Unknown requirement type: ${requirement.type}` };
   }
 }
 
 // Validate complete phase
-export function validatePhase(cardGroups, phaseNumber) {
+// allowExtras: if true, allows extra cards in groups that are valid extensions
+export function validatePhase(cardGroups, phaseNumber, allowExtras = false) {
   const phase = PHASES[phaseNumber];
   if (!phase) {
     return { valid: false, reason: `Invalid phase number: ${phaseNumber}` };
@@ -300,7 +339,7 @@ export function validatePhase(cardGroups, phaseNumber) {
   }
 
   for (let i = 0; i < cardGroups.length; i++) {
-    const result = validateRequirement(cardGroups[i], phase.requirements[i]);
+    const result = validateRequirement(cardGroups[i], phase.requirements[i], allowExtras);
     if (!result.valid) {
       return {
         valid: false,
@@ -310,12 +349,22 @@ export function validatePhase(cardGroups, phaseNumber) {
     }
   }
 
+  // When allowing extras, check total is at least the minimum required
   const totalCards = cardGroups.reduce((sum, group) => sum + group.length, 0);
-  if (totalCards !== phase.totalCards) {
-    return {
-      valid: false,
-      reason: `Phase requires ${phase.totalCards} cards total, got ${totalCards}`
-    };
+  if (allowExtras) {
+    if (totalCards < phase.totalCards) {
+      return {
+        valid: false,
+        reason: `Phase requires at least ${phase.totalCards} cards total, got ${totalCards}`
+      };
+    }
+  } else {
+    if (totalCards !== phase.totalCards) {
+      return {
+        valid: false,
+        reason: `Phase requires ${phase.totalCards} cards total, got ${totalCards}`
+      };
+    }
   }
 
   const allCardIds = cardGroups.flat().map(c => c.id);

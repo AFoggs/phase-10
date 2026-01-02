@@ -13,21 +13,21 @@ function PhaseBuilder({
   onPhaseOut,
   disabled = false
 }) {
-  // Validate each group
+  // Validate each group (allowing extra cards that would be valid hits)
   const groupValidations = useMemo(() =>
     groups.map((group, idx) => {
       if (group.length === 0) return { valid: false, reason: 'Empty group' };
-      return validateRequirement(group, phaseInfo.requirements[idx]);
+      return validateRequirement(group, phaseInfo.requirements[idx], true);
     }),
     [groups, phaseInfo.requirements]
   );
 
-  // Overall phase validation
+  // Overall phase validation (allowing extra cards)
   const phaseValidation = useMemo(() => {
     if (groups.some(g => g.length === 0)) {
       return { valid: false, reason: 'All groups must have cards' };
     }
-    return validatePhase(groups, phaseNumber);
+    return validatePhase(groups, phaseNumber, true);
   }, [groups, phaseNumber]);
 
   const hasAnyCards = groups.some(g => g.length > 0);
