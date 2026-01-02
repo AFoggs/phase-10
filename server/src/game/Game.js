@@ -282,9 +282,9 @@ class Game {
       return { success: false, error: 'Already laid down phase this round' };
     }
 
-    // Validate the phase
+    // Validate the phase (allow extra cards that would be valid hits)
     const phaseNumber = currentPlayer.currentPhase;
-    const result = validatePhase(cardGroups, phaseNumber);
+    const result = validatePhase(cardGroups, phaseNumber, true);
 
     if (!result.valid) {
       return { success: false, error: result.reason };

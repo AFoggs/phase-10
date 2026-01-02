@@ -20,6 +20,7 @@ function GameBoard({
   deckExhaustedNotification,
   hitNotification,
   phaseOutNotification,
+  drawNotification,
   onDrawCard,
   onLayDownPhase,
   onHitCard,
@@ -488,6 +489,24 @@ function GameBoard({
               {phaseOutNotification.playerId === playerId ? 'You can now hit on other phases!' : 'They can now hit on phases!'}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Draw notification - shows where someone drew from */}
+      {drawNotification && drawNotification.playerId !== playerId && (
+        <div className={`
+          fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-40
+          flex items-center gap-2 animate-slide-in border
+          ${drawNotification.source === 'deck'
+            ? 'bg-indigo-600/90 text-white border-indigo-400'
+            : 'bg-amber-600/90 text-white border-amber-400'}
+        `}>
+          <span className="text-xl">
+            {drawNotification.source === 'deck' ? '🃏' : '♻️'}
+          </span>
+          <span className="text-sm font-medium">
+            {drawNotification.playerName} drew from {drawNotification.source === 'deck' ? 'deck' : 'discard'}
+          </span>
         </div>
       )}
 

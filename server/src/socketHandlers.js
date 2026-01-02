@@ -211,9 +211,17 @@ function setupSocketHandlers(io) {
         return;
       }
 
+      const player = room.game.players.find(p => p.id === playerId);
       const result = room.game.drawCard(playerId, source);
 
       if (result.success) {
+        // Emit draw notification to all players
+        io.to(roomCode.toUpperCase()).emit('playerDrew', {
+          playerId: playerId,
+          playerName: player?.name,
+          source: source
+        });
+
         // Check if deck was exhausted (triggers round end)
         if (result.deckExhausted) {
           callback({
@@ -550,6 +558,15 @@ async function checkAndExecuteCPUTurn(io, roomCode) {
           playerId: currentPlayer.id,
           action
         });
+
+        // Emit draw notification for CPU draws
+        if (action.type === 'draw') {
+          io.to(roomCode.toUpperCase()).emit('playerDrew', {
+            playerId: currentPlayer.id,
+            playerName: currentPlayer.name,
+            source: action.source
+          });
+        }
 
         // Emit phase out notification for CPU
         if (action.type === 'layPhase') {
