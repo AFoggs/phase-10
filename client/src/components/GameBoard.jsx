@@ -136,11 +136,21 @@ function GameBoard({
   const addCardToPhaseBuilderAtPosition = useCallback((card, groupIndex, position) => {
     setPhaseBuilderGroups(prev => prev.map((group, idx) => {
       if (idx === groupIndex) {
+        // Find if card already exists in this group
+        const sourceIndex = group.findIndex(c => c.id === card.id);
         // Remove card if it exists in this group already
         const filtered = group.filter(c => c.id !== card.id);
+
+        // Adjust position if moving within the same group to a later position
+        // Since we removed the card, all positions after the source shift down by 1
+        let adjustedPosition = position;
+        if (sourceIndex !== -1 && sourceIndex < position) {
+          adjustedPosition = position - 1;
+        }
+
         // Insert at the specified position
         const newGroup = [...filtered];
-        newGroup.splice(position, 0, card);
+        newGroup.splice(adjustedPosition, 0, card);
         return newGroup;
       }
       // Remove from other groups

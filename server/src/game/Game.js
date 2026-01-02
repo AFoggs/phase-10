@@ -309,6 +309,15 @@ class Game {
       cardGroups
     };
 
+    // Check if player went out by using all cards for their phase
+    console.log('[PHASE] Hand count after laying phase:', currentPlayer.hand.length);
+    if (currentPlayer.hand.length === 0) {
+      console.log('[PHASE] Hand is empty after phase! Calling endRound');
+      const endResult = this.endRound(playerId);
+      console.log('[PHASE] endRound result:', endResult);
+      return { success: true, phaseNumber, ...endResult };
+    }
+
     return { success: true, phaseNumber };
   }
 

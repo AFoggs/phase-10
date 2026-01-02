@@ -280,7 +280,7 @@ function setupSocketHandlers(io) {
       const result = room.game.layDownPhase(playerId, cardGroups);
 
       if (result.success) {
-        callback({ success: true, phaseNumber: result.phaseNumber });
+        callback({ success: true, phaseNumber: result.phaseNumber, roundEnded: result.roundEnded, gameEnded: result.gameEnded });
 
         // Emit phase out notification
         io.to(roomCode.toUpperCase()).emit('playerPhasedOut', {
@@ -290,6 +290,20 @@ function setupSocketHandlers(io) {
         });
 
         broadcastGameState(io, roomCode);
+
+        // Handle round/game end from phasing out with all cards
+        if (result.roundEnded && !result.gameEnded) {
+          io.to(roomCode.toUpperCase()).emit('roundEnded', {
+            roundWinnerId: playerId
+          });
+        }
+
+        if (result.gameEnded) {
+          io.to(roomCode.toUpperCase()).emit('gameEnded', {
+            winnerId: room.game.winner
+          });
+          room.status = 'finished';
+        }
       } else {
         callback({ success: false, error: result.error });
       }
