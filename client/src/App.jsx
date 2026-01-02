@@ -7,7 +7,18 @@ import GameBoard from './components/GameBoard';
 import AudioPlayer from './components/AudioPlayer';
 import './App.css';
 
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001';
+// Determine server URL: use environment variable, or auto-detect based on current hostname
+// This allows connecting from other devices on the network
+const getSocketUrl = () => {
+  if (process.env.REACT_APP_SOCKET_URL) {
+    return process.env.REACT_APP_SOCKET_URL;
+  }
+  // Use the same hostname as the client but with server port 3001
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  return `${protocol}//${hostname}:3001`;
+};
+const SOCKET_URL = getSocketUrl();
 
 function App() {
   const [socket, setSocket] = useState(null);
