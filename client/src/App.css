@@ -292,3 +292,23 @@
     box-shadow: 0 0 0 8px rgba(243, 156, 18, 0);
   }
 }
+
+/* Discard pile change animation - when a card is picked up or added */
+@keyframes discardChange {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-discard-change {
+  animation: discardChange 0.4s ease-out;
+}

@@ -17,6 +17,10 @@ function DrawDiscardPiles({
   const [deckAnimation, setDeckAnimation] = useState(null);
   const prevCountRef = useRef(drawPileCount);
 
+  // Track discard pile changes for animation
+  const [discardAnimation, setDiscardAnimation] = useState(null);
+  const prevDiscardRef = useRef(topDiscard?.id);
+
   useEffect(() => {
     if (prevCountRef.current !== drawPileCount && prevCountRef.current !== 0) {
       const diff = drawPileCount - prevCountRef.current;
@@ -28,6 +32,20 @@ function DrawDiscardPiles({
     }
     prevCountRef.current = drawPileCount;
   }, [drawPileCount]);
+
+  // Animate discard pile when top card changes (card picked up or new card added)
+  useEffect(() => {
+    const currentId = topDiscard?.id;
+    if (prevDiscardRef.current && currentId !== prevDiscardRef.current) {
+      // Card changed - animate based on whether a card was added or removed
+      // If new top card exists and is different, a card was likely picked up (showing previous card)
+      setDiscardAnimation('change');
+      const timer = setTimeout(() => setDiscardAnimation(null), 400);
+      prevDiscardRef.current = currentId;
+      return () => clearTimeout(timer);
+    }
+    prevDiscardRef.current = currentId;
+  }, [topDiscard?.id]);
 
   // Drop zone for discarding cards
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
@@ -106,6 +124,7 @@ function DrawDiscardPiles({
                 transition-transform duration-200
                 ${canDraw && topDiscard.type !== 'skip' ? 'hover:scale-105 active:scale-95 cursor-pointer' : ''}
                 ${!canDraw && !canDiscard ? 'cursor-not-allowed opacity-75' : ''}
+                ${discardAnimation === 'change' ? 'animate-discard-change' : ''}
               `}
             >
               <Card

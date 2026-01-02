@@ -26,8 +26,12 @@ class CPUPlayer extends Player {
       return 'deck';
     }
 
-    // Wild cards are always valuable
+    // Wild cards are always valuable - but add some randomness
     if (topDiscard.type === 'wild') {
+      // Even humans sometimes don't take wilds (to hide their strategy)
+      if (this.difficulty === 'easy' && Math.random() > 0.8) {
+        return 'deck';
+      }
       return 'discard';
     }
 
@@ -37,20 +41,36 @@ class CPUPlayer extends Player {
     // Analyze if the discard card helps with current phase
     const helpfulness = this.analyzeCardHelpfulness(topDiscard);
 
+    // Add human-like randomness - sometimes make suboptimal choices
+    const randomFactor = Math.random();
+
     switch (this.difficulty) {
       case 'easy':
-        // Random choice with slight preference for helpful cards
-        return helpfulness > 0.5 ? 'discard' : 'deck';
+        // Easy CPU is mostly random, occasionally takes obviously good cards
+        if (randomFactor > 0.7) {
+          return 'deck'; // Often just draws from deck regardless
+        }
+        return helpfulness > 0.7 ? 'discard' : 'deck';
 
       case 'medium':
-        // Take if moderately helpful
-        return helpfulness > 0.3 ? 'discard' : 'deck';
+        // Medium CPU makes reasonable decisions with some randomness
+        // Prefer deck unless card is quite helpful
+        if (randomFactor > 0.85) {
+          return 'deck'; // Sometimes ignores good cards
+        }
+        if (randomFactor < 0.1) {
+          return helpfulness > 0.3 ? 'discard' : 'deck'; // Occasionally takes marginal cards
+        }
+        return helpfulness > 0.5 ? 'discard' : 'deck';
 
       case 'hard':
-        // Strategic analysis including blocking opponents
-        if (helpfulness > 0.2) return 'discard';
-        // Take cards that might help opponents (blocking)
-        if (this.shouldBlockOpponent(topDiscard)) return 'discard';
+        // Hard CPU is strategic but not perfect
+        if (randomFactor > 0.95) {
+          return 'deck'; // Rarely makes mistakes
+        }
+        if (helpfulness > 0.4) return 'discard';
+        // Consider blocking opponents occasionally
+        if (this.shouldBlockOpponent(topDiscard) && randomFactor > 0.5) return 'discard';
         return 'deck';
 
       default:
@@ -58,10 +78,10 @@ class CPUPlayer extends Player {
     }
   }
 
-  // Analyze how helpful a card is for current phase
+  // Analyze how helpful a card is for current phase (more conservative scoring)
   analyzeCardHelpfulness(card) {
     if (card.type === 'wild') return 1.0;
-    if (card.type === 'skip') return 0.3;
+    if (card.type === 'skip') return 0.1; // Skip cards aren't very helpful for completing phases
 
     const phaseInfo = getPhaseInfo(this.currentPhase);
     if (!phaseInfo) return 0;
@@ -71,41 +91,60 @@ class CPUPlayer extends Player {
     for (const req of phaseInfo.requirements) {
       switch (req.type) {
         case 'set':
-        case 'colorSet':
+        case 'colorSet': {
           // Check if we have cards with same value
           const sameValue = this.hand.filter(c => c.value === card.value);
-          helpfulness = Math.max(helpfulness, sameValue.length / req.count);
-          break;
-
-        case 'run':
-        case 'colorRun':
-          // Check if card fits in a potential run
-          const values = this.hand
-            .filter(c => c.type === 'number')
-            .map(c => c.value)
-            .sort((a, b) => a - b);
-
-          // Check proximity to existing cards
-          for (const v of values) {
-            if (Math.abs(card.value - v) <= 1) {
-              helpfulness = Math.max(helpfulness, 0.7);
-            } else if (Math.abs(card.value - v) <= 2) {
-              helpfulness = Math.max(helpfulness, 0.4);
-            }
+          // Need at least 2 matching cards for it to be helpful (would give us 3)
+          if (sameValue.length >= 2) {
+            helpfulness = Math.max(helpfulness, 0.8);
+          } else if (sameValue.length === 1) {
+            helpfulness = Math.max(helpfulness, 0.4); // One match is marginally helpful
           }
           break;
+        }
 
-        case 'color':
+        case 'run':
+        case 'colorRun': {
+          // Check if card extends or fills a gap in a potential run
+          const values = this.hand
+            .filter(c => c.type === 'number')
+            .map(c => c.value);
+
+          // Count how many consecutive neighbors this card has
+          let consecutiveCount = 0;
+          if (values.includes(card.value - 1)) consecutiveCount++;
+          if (values.includes(card.value + 1)) consecutiveCount++;
+          if (values.includes(card.value - 2) && values.includes(card.value - 1)) consecutiveCount++;
+          if (values.includes(card.value + 2) && values.includes(card.value + 1)) consecutiveCount++;
+
+          // Only helpful if it connects to at least 2 consecutive cards
+          if (consecutiveCount >= 2) {
+            helpfulness = Math.max(helpfulness, 0.7);
+          } else if (consecutiveCount === 1) {
+            helpfulness = Math.max(helpfulness, 0.3);
+          }
+          break;
+        }
+
+        case 'color': {
           // Check if we have cards of same color
           const sameColor = this.hand.filter(c => c.color === card.color);
-          helpfulness = Math.max(helpfulness, sameColor.length / req.count);
+          // Need significant matching for color requirements
+          if (sameColor.length >= req.count - 2) {
+            helpfulness = Math.max(helpfulness, 0.7);
+          } else if (sameColor.length >= req.count / 2) {
+            helpfulness = Math.max(helpfulness, 0.4);
+          }
           break;
+        }
 
         case 'oddRun':
         case 'oddColorRun':
           if (card.value % 2 === 1) {
             const oddCards = this.hand.filter(c => c.type === 'number' && c.value % 2 === 1);
-            helpfulness = Math.max(helpfulness, oddCards.length / req.count);
+            if (oddCards.length >= req.count - 2) {
+              helpfulness = Math.max(helpfulness, 0.6);
+            }
           }
           break;
 
@@ -113,7 +152,9 @@ class CPUPlayer extends Player {
         case 'evenColorRun':
           if (card.value % 2 === 0) {
             const evenCards = this.hand.filter(c => c.type === 'number' && c.value % 2 === 0);
-            helpfulness = Math.max(helpfulness, evenCards.length / req.count);
+            if (evenCards.length >= req.count - 2) {
+              helpfulness = Math.max(helpfulness, 0.6);
+            }
           }
           break;
       }
