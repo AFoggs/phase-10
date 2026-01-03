@@ -11,6 +11,8 @@ function PhaseBuilder({
   onAddCardAtPosition, // New: for inserting at specific position in runs
   onRemoveCard,
   onClearAll,
+  onUndo, // Undo last action
+  canUndo = false, // Whether undo is available
   onPhaseOut,
   canPhaseOut = true, // Whether phase out button should be enabled (your turn + play phase)
   disabled = false // Whether all interaction is disabled
@@ -63,6 +65,19 @@ function PhaseBuilder({
         </div>
 
         <div className="flex items-center justify-center gap-2">
+          {/* Undo button */}
+          {canUndo && onUndo && (
+            <button
+              onClick={onUndo}
+              disabled={disabled}
+              className="text-xs sm:text-sm px-2 sm:px-3 py-1 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded transition-colors flex items-center gap-1"
+              title="Undo last action"
+            >
+              <span className="text-sm">↩</span>
+              <span className="hidden sm:inline">Undo</span>
+            </button>
+          )}
+
           {hasAnyCards && (
             <button
               onClick={onClearAll}

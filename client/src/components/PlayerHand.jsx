@@ -12,6 +12,7 @@ function PlayerHand({
   maxSelect = Infinity,
   showSort = true,
   highlightCardId = null,
+  hittableCardIds = new Set(),
   onSortModeChange = null
 }) {
   // 'color' = by color then number, 'number' = by number then color
@@ -90,12 +91,14 @@ function PlayerHand({
       >
         {displayCards.map((card, index) => {
           const isHighlighted = card.id === highlightCardId;
+          const isHittable = hittableCardIds.has(card.id);
           return (
             <div
               key={card.id}
               className={`
                 relative transform transition-transform duration-200
                 ${isHighlighted ? 'animate-pulse-glow' : ''}
+                ${isHittable ? 'ring-2 ring-cyan-400 ring-offset-1 ring-offset-transparent rounded-lg shadow-[0_0_10px_rgba(34,211,238,0.5)]' : ''}
               `}
               style={{
                 animationDelay: `${index * 50}ms`
@@ -104,6 +107,11 @@ function PlayerHand({
               {isHighlighted && (
                 <div className="absolute -top-4 sm:-top-5 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs bg-green-500 text-white px-1.5 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap z-20 shadow-lg">
                   NEW
+                </div>
+              )}
+              {isHittable && !isHighlighted && (
+                <div className="absolute -top-4 sm:-top-5 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs bg-cyan-500 text-white px-1.5 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap z-20 shadow-lg">
+                  HIT
                 </div>
               )}
               <Card

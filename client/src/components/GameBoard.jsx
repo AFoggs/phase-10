@@ -21,12 +21,14 @@ function GameBoard({
   hitNotification,
   phaseOutNotification,
   drawNotification,
+  gamePaused,
   onDrawCard,
   onLayDownPhase,
   onHitCard,
   onDiscardCard,
   onSelectPhase,
   onStartNewRound,
+  onRematch,
   onLeaveRoom
 }) {
   const [selectedCards, setSelectedCards] = useState([]);
@@ -41,6 +43,10 @@ function GameBoard({
 
   // Phase builder state - persistent groups for drag-and-drop phase building
   const [phaseBuilderGroups, setPhaseBuilderGroups] = useState([]);
+
+  // Undo history for phase builder
+  const [phaseBuilderHistory, setPhaseBuilderHistory] = useState([]);
+  const maxHistorySize = 20;
 
   // Sound effects
   const { playSound } = useGameSounds();
@@ -57,6 +63,40 @@ function GameBoard({
     game?.players?.filter(p => p.id !== playerId) || [],
     [game, playerId]
   );
+
+  // Calculate which cards can hit on visible phase groups (hit preview)
+  const hittableCardIds = useMemo(() => {
+    if (!currentPlayer?.hand || !hasCompletedPhase || !canPlay) {
+      return new Set();
+    }
+
+    const hittableIds = new Set();
+
+    // Get all players who have laid down phases
+    const playersWithPhases = game?.players?.filter(p => p.laidDownPhase) || [];
+
+    for (const card of currentPlayer.hand) {
+      for (const targetPlayer of playersWithPhases) {
+        const targetPhaseInfo = getPhaseInfo(targetPlayer.currentPhase);
+        if (!targetPhaseInfo) continue;
+
+        for (let groupIdx = 0; groupIdx < targetPlayer.laidDownPhase.length; groupIdx++) {
+          const group = targetPlayer.laidDownPhase[groupIdx];
+          const groupType = targetPhaseInfo.requirements[groupIdx];
+
+          const result = canHitOnPhase(card, group, groupType);
+          if (result.canHit) {
+            hittableIds.add(card.id);
+            break; // Card can hit somewhere, no need to check more
+          }
+        }
+
+        if (hittableIds.has(card.id)) break; // Already found a hit target
+      }
+    }
+
+    return hittableIds;
+  }, [currentPlayer?.hand, game?.players, hasCompletedPhase, canPlay]);
 
   // Is it my turn?
   const isMyTurn = game?.currentPlayerId === playerId;
@@ -80,10 +120,36 @@ function GameBoard({
   React.useEffect(() => {
     if (myPhaseInfo && !hasCompletedPhase) {
       setPhaseBuilderGroups(myPhaseInfo.requirements.map(() => []));
+      setPhaseBuilderHistory([]); // Clear history on new phase/round
     } else {
       setPhaseBuilderGroups([]);
+      setPhaseBuilderHistory([]);
     }
   }, [myPhaseInfo, hasCompletedPhase, game?.roundNumber]);
+
+  // Helper to save current state to history before making changes
+  const saveToHistory = useCallback(() => {
+    setPhaseBuilderHistory(prev => {
+      const newHistory = [...prev, phaseBuilderGroups];
+      // Keep only the last N states
+      if (newHistory.length > maxHistorySize) {
+        return newHistory.slice(-maxHistorySize);
+      }
+      return newHistory;
+    });
+  }, [phaseBuilderGroups, maxHistorySize]);
+
+  // Undo last phase builder action
+  const undoPhaseBuilder = useCallback(() => {
+    if (phaseBuilderHistory.length === 0) return;
+
+    const previousState = phaseBuilderHistory[phaseBuilderHistory.length - 1];
+    setPhaseBuilderGroups(previousState);
+    setPhaseBuilderHistory(prev => prev.slice(0, -1));
+  }, [phaseBuilderHistory]);
+
+  // Check if undo is available
+  const canUndo = phaseBuilderHistory.length > 0;
 
   // Sync phase builder with hand - remove cards that are no longer in hand
   React.useEffect(() => {
@@ -117,6 +183,7 @@ function GameBoard({
 
   // Phase builder functions
   const addCardToPhaseBuilder = useCallback((card, groupIndex) => {
+    saveToHistory();
     setPhaseBuilderGroups(prev => prev.map((group, idx) => {
       if (idx === groupIndex) {
         // Add to this group if not already there
@@ -130,10 +197,11 @@ function GameBoard({
     }));
     // Clear selection when card is added to builder
     setSelectedCards([]);
-  }, []);
+  }, [saveToHistory]);
 
   // Add card at a specific position (for runs)
   const addCardToPhaseBuilderAtPosition = useCallback((card, groupIndex, position) => {
+    saveToHistory();
     setPhaseBuilderGroups(prev => prev.map((group, idx) => {
       if (idx === groupIndex) {
         // Find if card already exists in this group
@@ -157,16 +225,17 @@ function GameBoard({
       return group.filter(c => c.id !== card.id);
     }));
     setSelectedCards([]);
-  }, []);
+  }, [saveToHistory]);
 
   const removeCardFromPhaseBuilder = useCallback((cardId, groupIndex) => {
+    saveToHistory();
     setPhaseBuilderGroups(prev => prev.map((group, idx) => {
       if (idx === groupIndex) {
         return group.filter(c => c.id !== cardId);
       }
       return group;
     }));
-  }, []);
+  }, [saveToHistory]);
 
   // Return a card from the builder back to hand (just removes it from builder)
   const returnCardToHand = useCallback((card, fromGroupIndex) => {
@@ -177,9 +246,10 @@ function GameBoard({
 
   const clearPhaseBuilder = useCallback(() => {
     if (myPhaseInfo) {
+      saveToHistory();
       setPhaseBuilderGroups(myPhaseInfo.requirements.map(() => []));
     }
-  }, [myPhaseInfo]);
+  }, [myPhaseInfo, saveToHistory]);
 
   // Handle phase out (submit the phase from builder)
   const handlePhaseOut = useCallback(async () => {
@@ -356,6 +426,7 @@ function GameBoard({
   if (game?.phase === 'gameEnd') {
     const winner = game.players.find(p => p.id === game.winner);
     const isWinner = game.winner === playerId;
+    const isHost = room?.hostId === playerId;
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -370,12 +441,51 @@ function GameBoard({
 
         <ScoreBoard players={game.players} playerId={playerId} final />
 
-        <button
-          onClick={onLeaveRoom}
-          className="btn-primary mt-8"
-        >
-          Return to Lobby
-        </button>
+        <div className="flex gap-4 mt-8">
+          {isHost && onRematch && (
+            <button
+              onClick={onRematch}
+              className="btn-primary"
+            >
+              Play Again
+            </button>
+          )}
+          <button
+            onClick={onLeaveRoom}
+            className="btn-secondary"
+          >
+            Leave Game
+          </button>
+        </div>
+        {!isHost && (
+          <p className="text-gray-400 mt-4 text-sm">
+            Waiting for host to start rematch...
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Paused screen (when a player disconnects)
+  if (game?.phase === 'paused' || gamePaused) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="bg-gray-800 rounded-xl p-8 text-center max-w-md">
+          <div className="text-5xl mb-4">⏸️</div>
+          <h1 className="text-3xl font-bold text-amber-500 mb-4">Game Paused</h1>
+          <p className="text-gray-300 mb-2">
+            {gamePaused?.pausedByPlayerName || 'A player'} has disconnected.
+          </p>
+          <p className="text-gray-400 text-sm">
+            The game will resume when they reconnect.
+          </p>
+          <button
+            onClick={onLeaveRoom}
+            className="btn-secondary mt-6"
+          >
+            Leave Game
+          </button>
+        </div>
       </div>
     );
   }
@@ -651,6 +761,8 @@ function GameBoard({
                 onAddCardAtPosition={addCardToPhaseBuilderAtPosition}
                 onRemoveCard={removeCardFromPhaseBuilder}
                 onClearAll={clearPhaseBuilder}
+                onUndo={undoPhaseBuilder}
+                canUndo={canUndo}
                 onPhaseOut={handlePhaseOut}
                 canPhaseOut={canPlay}
                 disabled={false}
@@ -768,6 +880,7 @@ function GameBoard({
           canSelect={true}
           maxSelect={1}
           highlightCardId={lastDrawnCardId}
+          hittableCardIds={hittableCardIds}
           onSortModeChange={setSortMode}
         />
       </HandDropZone>

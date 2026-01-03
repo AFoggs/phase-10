@@ -11,7 +11,7 @@ class Game {
     this.deck = null;
     this.currentPlayerIndex = 0;
     this.roundNumber = 1;
-    this.phase = 'waiting'; // waiting, playing, roundEnd, gameEnd
+    this.phase = 'waiting'; // waiting, playing, roundEnd, gameEnd, paused
     this.turnPhase = 'draw'; // draw, play, discard
     this.winner = null;
     this.lastAction = null;
@@ -22,6 +22,76 @@ class Game {
 
     // For Chaos mode - assigned phases per round
     this.chaosPhases = new Map();
+
+    // For pause on disconnect
+    this.isPaused = false;
+    this.pausedByPlayerId = null;
+    this.pausedPhase = null; // Store phase before pausing
+  }
+
+  // Pause the game (when a human player disconnects)
+  pause(disconnectedPlayerId) {
+    if (this.phase === 'waiting' || this.phase === 'gameEnd') {
+      return { success: false, error: 'Cannot pause in this state' };
+    }
+
+    if (this.isPaused) {
+      return { success: false, error: 'Game already paused' };
+    }
+
+    this.isPaused = true;
+    this.pausedByPlayerId = disconnectedPlayerId;
+    this.pausedPhase = this.phase;
+    this.phase = 'paused';
+
+    return { success: true };
+  }
+
+  // Resume the game (when disconnected player reconnects)
+  resume(reconnectedPlayerId) {
+    if (!this.isPaused) {
+      return { success: false, error: 'Game not paused' };
+    }
+
+    // Only the player who caused the pause can resume it
+    if (this.pausedByPlayerId !== reconnectedPlayerId) {
+      return { success: false, error: 'Wrong player' };
+    }
+
+    this.isPaused = false;
+    this.phase = this.pausedPhase;
+    this.pausedPhase = null;
+    this.pausedByPlayerId = null;
+
+    return { success: true };
+  }
+
+  // Reset the game for a rematch (keep players, reset scores and phases)
+  rematch() {
+    if (this.phase !== 'gameEnd') {
+      return { success: false, error: 'Game not ended' };
+    }
+
+    // Reset all players completely
+    for (const player of this.players) {
+      player.resetForRematch();
+    }
+
+    // Reset game state
+    this.deck = null;
+    this.currentPlayerIndex = 0;
+    this.roundNumber = 1;
+    this.phase = 'waiting';
+    this.turnPhase = 'draw';
+    this.winner = null;
+    this.lastAction = null;
+    this.pendingPhaseSelections.clear();
+    this.chaosPhases.clear();
+    this.isPaused = false;
+    this.pausedByPlayerId = null;
+    this.pausedPhase = null;
+
+    return { success: true };
   }
 
   // Add a player to the game

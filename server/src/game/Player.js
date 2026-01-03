@@ -171,6 +171,17 @@ class Player {
     this.hasDrawnThisTurn = false;
   }
 
+  // Reset for rematch (full reset including score and phase)
+  resetForRematch() {
+    this.hand = [];
+    this.currentPhase = 1;
+    this.completedPhaseThisRound = false;
+    this.laidDownPhase = null;
+    this.score = 0;
+    this.skipCount = 0;
+    this.hasDrawnThisTurn = false;
+  }
+
   // Get hand count (for other players to see)
   getHandCount() {
     return this.hand.length;

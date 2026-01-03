@@ -41,6 +41,7 @@ function App() {
   const [hitNotification, setHitNotification] = useState(null);
   const [phaseOutNotification, setPhaseOutNotification] = useState(null);
   const [drawNotification, setDrawNotification] = useState(null);
+  const [gamePaused, setGamePaused] = useState(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -152,6 +153,27 @@ function App() {
       setTimeout(() => setDrawNotification(null), 2000);
     });
 
+    // Pause/Resume events
+    socket.on('gamePaused', ({ pausedByPlayerId, pausedByPlayerName, reason }) => {
+      setGamePaused({ pausedByPlayerId, pausedByPlayerName, reason });
+    });
+
+    socket.on('gameResumed', ({ resumedByPlayerId, resumedByPlayerName }) => {
+      setGamePaused(null);
+    });
+
+    // Rematch event - go back to lobby
+    socket.on('rematchStarted', ({ room }) => {
+      setRoom(room);
+      setGame(null);
+      setGamePaused(null);
+    });
+
+    // Player reconnection
+    socket.on('playerReconnected', ({ playerId: reconnectedId, playerName }) => {
+      // Could show a notification here
+    });
+
     return () => {
       socket.off('roomUpdated');
       socket.off('playerJoined');
@@ -169,6 +191,10 @@ function App() {
       socket.off('playerHit');
       socket.off('playerPhasedOut');
       socket.off('playerDrew');
+      socket.off('gamePaused');
+      socket.off('gameResumed');
+      socket.off('rematchStarted');
+      socket.off('playerReconnected');
     };
   }, [socket]);
 
@@ -357,6 +383,21 @@ function App() {
     });
   }, [socket, roomCode]);
 
+  // Rematch handler - reset game and go back to lobby
+  const handleRematch = useCallback(() => {
+    if (!socket || !roomCode) return Promise.reject('Not connected');
+
+    return new Promise((resolve, reject) => {
+      socket.emit('rematch', { roomCode }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(response.error);
+        }
+      });
+    });
+  }, [socket, roomCode]);
+
   // Clear error after 5 seconds
   useEffect(() => {
     if (error) {
@@ -422,12 +463,14 @@ function App() {
             hitNotification={hitNotification}
             phaseOutNotification={phaseOutNotification}
             drawNotification={drawNotification}
+            gamePaused={gamePaused}
             onDrawCard={handleDrawCard}
             onLayDownPhase={handleLayDownPhase}
             onHitCard={handleHitCard}
             onDiscardCard={handleDiscardCard}
             onSelectPhase={handleSelectPhase}
             onStartNewRound={handleStartNewRound}
+            onRematch={handleRematch}
             onLeaveRoom={handleLeaveRoom}
           />
         )}

@@ -512,12 +512,61 @@ function setupSocketHandlers(io) {
       }
     });
 
+    // Rematch (start a new game with same players)
+    socket.on('rematch', (data, callback) => {
+      const { roomCode } = data;
+      const playerId = socketToPlayer.get(socket.id);
+
+      const room = roomManager.getRoom(roomCode);
+      if (!room || !room.game) {
+        callback({ success: false, error: 'Game not found' });
+        return;
+      }
+
+      if (room.hostId !== playerId) {
+        callback({ success: false, error: 'Only host can start rematch' });
+        return;
+      }
+
+      const result = room.game.rematch();
+
+      if (result.success) {
+        room.status = 'waiting';
+        callback({ success: true });
+
+        // Notify all players that game was reset for rematch
+        io.to(roomCode.toUpperCase()).emit('rematchStarted', {
+          room: roomManager.getRoomPublicState(roomCode)
+        });
+      } else {
+        callback({ success: false, error: result.error });
+      }
+    });
+
     // Handle disconnect
     socket.on('disconnect', () => {
       const playerId = socketToPlayer.get(socket.id);
       if (playerId) {
         const result = roomManager.handleDisconnect(playerId);
         if (result && result.roomCode) {
+          const room = roomManager.getRoom(result.roomCode);
+
+          // Check if game is in progress and should be paused
+          if (room && room.game && room.game.phase === 'playing') {
+            const player = room.game.players.find(p => p.id === playerId);
+            // Only pause for human players
+            if (player && !player.isComputer) {
+              const pauseResult = room.game.pause(playerId);
+              if (pauseResult.success) {
+                io.to(result.roomCode.toUpperCase()).emit('gamePaused', {
+                  pausedByPlayerId: playerId,
+                  pausedByPlayerName: player.name,
+                  reason: 'Player disconnected'
+                });
+              }
+            }
+          }
+
           io.to(result.roomCode.toUpperCase()).emit('playerDisconnected', {
             playerId,
             room: result.room
@@ -527,6 +576,56 @@ function setupSocketHandlers(io) {
         playerToSocket.delete(playerId);
       }
       console.log('Client disconnected:', socket.id);
+    });
+
+    // Handle reconnection (player rejoining)
+    socket.on('reconnect', (data, callback) => {
+      const { roomCode, playerId: oldPlayerId } = data;
+
+      const room = roomManager.getRoom(roomCode);
+      if (!room) {
+        callback({ success: false, error: 'Room not found' });
+        return;
+      }
+
+      // Find the player in the room
+      const player = room.players.find(p => p.id === oldPlayerId);
+      if (!player) {
+        callback({ success: false, error: 'Player not found in room' });
+        return;
+      }
+
+      // Update mappings
+      socketToPlayer.set(socket.id, player.id);
+      playerToSocket.set(player.id, socket.id);
+      socket.join(roomCode.toUpperCase());
+
+      // Mark player as connected
+      player.connected = true;
+
+      // Resume game if it was paused by this player
+      if (room.game && room.game.isPaused && room.game.pausedByPlayerId === player.id) {
+        const resumeResult = room.game.resume(player.id);
+        if (resumeResult.success) {
+          io.to(roomCode.toUpperCase()).emit('gameResumed', {
+            resumedByPlayerId: player.id,
+            resumedByPlayerName: player.name
+          });
+        }
+      }
+
+      callback({
+        success: true,
+        playerId: player.id,
+        room: roomManager.getRoomPublicState(roomCode),
+        game: room.game ? room.game.getStateForPlayer(player.id) : null
+      });
+
+      // Notify others
+      io.to(roomCode.toUpperCase()).emit('playerReconnected', {
+        playerId: player.id,
+        playerName: player.name
+      });
     });
   });
 

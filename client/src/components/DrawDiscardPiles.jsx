@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDrop } from 'react-dnd';
-import Card, { ItemTypes } from './Card';
+import Card, { MiniCard, ItemTypes } from './Card';
 
 function DrawDiscardPiles({
   deck,
@@ -11,7 +11,12 @@ function DrawDiscardPiles({
   onDiscard
 }) {
   const drawPileCount = deck?.drawPileCount || 0;
+  const discardPileCount = deck?.discardPileCount || 0;
   const topDiscard = deck?.topDiscard;
+  const discardHistory = deck?.discardHistory || [];
+
+  // State for showing discard history popup
+  const [showHistory, setShowHistory] = useState(false);
 
   // Track deck count changes for animation
   const [deckAnimation, setDeckAnimation] = useState(null);
@@ -149,12 +154,50 @@ function DrawDiscardPiles({
             </div>
           )}
 
+          {/* Discard pile count badge */}
+          {discardPileCount > 0 && (
+            <div
+              className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2
+                bg-gray-700 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full
+                font-bold cursor-pointer hover:bg-gray-600 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowHistory(!showHistory);
+              }}
+              title="Click to see discard history"
+            >
+              {discardPileCount}
+            </div>
+          )}
+
           {/* Drop indicator overlay */}
           {isOver && canDrop && topDiscard && (
             <div className="absolute inset-0 flex items-center justify-center bg-accent-gold/30 rounded-lg pointer-events-none">
               <span className="text-white font-bold text-xs sm:text-sm bg-accent-gold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                 Discard
               </span>
+            </div>
+          )}
+
+          {/* Discard history popup */}
+          {showHistory && discardHistory.length > 0 && (
+            <div
+              className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50
+                bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-xl min-w-[150px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-xs text-gray-400 mb-2 text-center">Recent Discards</div>
+              <div className="flex flex-wrap gap-1 justify-center">
+                {discardHistory.map((card, idx) => (
+                  <MiniCard key={card.id || idx} card={card} />
+                ))}
+              </div>
+              <button
+                className="mt-2 text-xs text-gray-500 hover:text-gray-300 w-full text-center"
+                onClick={() => setShowHistory(false)}
+              >
+                Close
+              </button>
             </div>
           )}
         </div>

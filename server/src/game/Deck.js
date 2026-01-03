@@ -152,11 +152,21 @@ class Deck {
     this.discardPile = [];
   }
 
+  // Get recent discard history (last N cards, excluding current top)
+  getDiscardHistory(count = 5) {
+    if (this.discardPile.length <= 1) return [];
+    // Return cards from newest to oldest, excluding the current top card
+    const history = this.discardPile.slice(0, -1).slice(-count).reverse();
+    return history;
+  }
+
   // Get state for sending to clients (hide exact deck contents)
   getState() {
     return {
       drawPileCount: this.cards.length,
+      discardPileCount: this.discardPile.length,
       discardPile: [...this.discardPile],
+      discardHistory: this.getDiscardHistory(5),
       topDiscard: this.getTopDiscard()
     };
   }
