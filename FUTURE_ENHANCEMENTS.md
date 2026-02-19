@@ -13,32 +13,24 @@ A prioritized list of features and improvements to consider for the Phase 10 gam
 - **Files:** `client/src/components/PhaseBuilder.jsx`, `client/src/utils/phaseDefinitions.js`
 
 ### Deck/Discard Count Display
-- **Status:** Not implemented
-- **Description:** Show players how many cards remain in the draw pile
-- **Implementation:** Add deck count to game state, display in `DrawDiscardPiles.jsx`
-- **Files:** `server/src/game/Game.js`, `client/src/components/DrawDiscardPiles.jsx`
+- **Status:** Completed ✅
+- **Description:** Shows deck and discard pile card counts with clickable discard history
 
 ### Discard Pile History
-- **Status:** Only shows top card
-- **Description:** Allow players to see recently discarded cards (last 5-10)
-- **Implementation:** Track discard history in state, add hover/click to reveal
-- **Files:** `server/src/game/Deck.js`, `client/src/components/DrawDiscardPiles.jsx`
+- **Status:** Completed ✅
+- **Description:** Click discard count badge to see last 5 discarded cards
 
 ### Rematch / Play Again
-- **Status:** Not implemented
-- **Description:** Quick restart with same players after game ends
-- **Implementation:** Add "Play Again" button that resets game state but keeps room/players
-- **Files:** `server/src/rooms/RoomManager.js`, `client/src/components/GameBoard.jsx`
+- **Status:** Completed ✅
+- **Description:** "Play Again" button after game ends, resets game with same players
 
 ---
 
 ## Medium Impact - UX Improvements
 
 ### Hit Preview / Card Suggestions
-- **Status:** Not implemented
-- **Description:** Highlight which cards in hand can hit on visible phases
-- **Implementation:** Calculate valid hits for each card, add visual indicator
-- **Files:** `client/src/components/PlayerHand.jsx`, `server/src/game/phaseLogic.js`
+- **Status:** Completed ✅
+- **Description:** Cards that can hit show cyan glow and "HIT" badge during play phase
 
 ### Spectator Mode
 - **Status:** Not implemented
@@ -53,16 +45,12 @@ A prioritized list of features and improvements to consider for the Phase 10 gam
 - **Files:** New component `client/src/components/GameChat.jsx`
 
 ### Pause on Disconnect
-- **Status:** Players marked disconnected but game continues
-- **Description:** Pause game when human player disconnects, resume on reconnect
-- **Implementation:** Add pause state, timeout before auto-forfeit
-- **Files:** `server/src/game/Game.js`, `server/src/socketHandlers.js`
+- **Status:** Completed ✅
+- **Description:** Game pauses when human player disconnects, resumes on reconnect
 
 ### Better Reconnection Support
-- **Status:** Limited - players can't fully rejoin mid-game
-- **Description:** Allow disconnected players to rejoin and resume their game
-- **Implementation:** Store player session tokens, sync full state on reconnect
-- **Files:** `server/src/socketHandlers.js`, `client/src/App.jsx`
+- **Status:** Completed ✅
+- **Description:** Reconnect handler syncs state and resumes paused games
 
 ---
 
@@ -87,10 +75,8 @@ A prioritized list of features and improvements to consider for the Phase 10 gam
 - **Files:** New component, requires persistence layer
 
 ### Undo Phase Building
-- **Status:** Limited
-- **Description:** Easy undo for card placements in phase builder
-- **Implementation:** Track action history, add undo button
-- **Files:** `client/src/components/GameBoard.jsx`
+- **Status:** Completed ✅
+- **Description:** Undo button in phase builder reverts card placements (up to 20 actions)
 
 ### Screen Reader Support
 - **Status:** Not implemented
@@ -160,6 +146,13 @@ A prioritized list of features and improvements to consider for the Phase 10 gam
 - [x] Draw notifications with card info
 - [x] Phase out notifications
 - [x] Hit notifications
+- [x] Deck/discard count display
+- [x] Discard pile history (last 5 cards)
+- [x] Rematch / Play Again
+- [x] Hit preview (cyan glow on hittable cards)
+- [x] Pause on disconnect with auto-resume
+- [x] Player reconnection support
+- [x] Undo phase building (up to 20 actions)
 
 ---
 
